@@ -57,16 +57,13 @@ export interface Env {
 
 const ENV_FILE = path.resolve(import.meta.dirname, '..', '..', '.env');
 
-let cached: Env | undefined;
-
 /**
  * Carga `.env` (si existe) y valida las variables con Zod.
- * Las variables ya definidas en el proceso tienen prioridad sobre el archivo.
+ * Las variables ya definidas en el proceso tienen prioridad sobre el archivo, por lo que
+ * llamarla varias veces es seguro: no se guarda estado entre llamadas.
  * Una configuración inválida detiene la ejecución con un mensaje claro.
  */
 export function loadEnv(): Env {
-  if (cached) return cached;
-
   if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 
   const parsed = EnvSchema.safeParse(process.env);
@@ -77,11 +74,10 @@ export function loadEnv(): Env {
   const vars = parsed.data;
   const testEnv: TestEnvName = vars.TEST_ENV ?? (vars.CI ? 'ci' : 'local');
 
-  cached = {
+  return {
     testEnv,
     profile: PROFILES[testEnv],
     baseURL: vars.BASE_URL,
     ai: { provider: vars.AI_PROVIDER, apiKey: vars.AI_API_KEY, model: vars.AI_MODEL },
   };
-  return cached;
 }

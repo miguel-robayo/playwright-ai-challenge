@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2). Están listos la configuración, los proyectos, los entornos, la generación BDD, la calidad de código y los reportes. Los escenarios de negocio, los fixtures de ciclo de vida y la integración de IA llegan en las fases siguientes.
+> **Estado:** foundation técnica (Fase 2) y arquitectura BDD + Screenplay (Fase 3), con una primera vertical funcional: el checkout de un usuario anónimo. Los demás escenarios de negocio, el ciclo de vida de cuentas y la integración de IA llegan en las fases siguientes.
 
 ## Documentación
 
@@ -103,14 +103,18 @@ Los tests de Playwright se generan a partir de los `.feature` al cargar `playwri
 
 ```
 features/            escenarios Gherkin (.feature)
-  smoke/             verificación de la foundation (proyecto functional)
-  ai/                verificación del proyecto ai
+  checkout/          checkout de un usuario anónimo (proyecto functional)
+  ai/                verificación provisional del proyecto ai
 steps/
   common/            step definitions de todos los proyectos
   ai/                step definitions que solo carga el proyecto ai
 src/
   config/            entorno validado con Zod y nombres de proyecto
-  fixtures/          test base de playwright-bdd y fixtures propios
+  fixtures/          test base: guards de red, Page Objects (app) y contexto de escenario
+  pages/             Page Objects y componentes
+  tasks/             objetivos de negocio que coordinan acciones
+  questions/         consultas que convierten el estado de la página en datos tipados
+  interactions/      operaciones de red: sincronización HTTP y guards
   support/           global setup (limpieza de resultados de Allure)
 docs/                documentación del reto
 playwright.config.ts

@@ -1,0 +1,29 @@
+import type { ListedProduct } from '../questions/products.questions';
+
+/**
+ * Datos que un escenario comparte entre sus pasos. Cada clave tiene un tipo fijo:
+ * añadir una clave aquí es la única forma de compartir un dato nuevo.
+ */
+export interface ScenarioMemory {
+  /** Producto que la preparación del escenario añadió al carrito. */
+  productInCart: ListedProduct;
+}
+
+/**
+ * Memoria tipada de un escenario. El fixture `scenario` crea una instancia nueva
+ * por test, así que nada se comparte entre escenarios ni entre workers.
+ */
+export class ScenarioContext {
+  readonly #values = new Map<keyof ScenarioMemory, ScenarioMemory[keyof ScenarioMemory]>();
+
+  remember<K extends keyof ScenarioMemory>(key: K, value: ScenarioMemory[K]): void {
+    this.#values.set(key, value);
+  }
+
+  recall<K extends keyof ScenarioMemory>(key: K): ScenarioMemory[K] {
+    if (!this.#values.has(key)) {
+      throw new Error(`El escenario no registró "${key}" en un paso anterior`);
+    }
+    return this.#values.get(key) as ScenarioMemory[K];
+  }
+}

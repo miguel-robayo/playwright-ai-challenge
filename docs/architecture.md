@@ -15,19 +15,27 @@ Feature (.feature, Gherkin)
 | Capa | Responsabilidad | Límites |
 |---|---|---|
 | Feature | Comportamiento esperado en lenguaje de negocio, en español (`# language: es`) | Sin detalles técnicos: ni selectores, ni URLs internas, ni datos concretos |
-| Step Definitions | Traducen cada paso a llamadas a Tasks, Questions o Interactions. Los pasos `Entonces` hacen las aserciones | Sin localizadores ni lógica de negocio. Un paso no llama directamente a Playwright |
-| Tasks | Acciones de negocio compuestas: registrar una cuenta, añadir un producto al carrito, ir al checkout, rellenar el pago, eliminar la cuenta | No hacen aserciones; las únicas esperas son las necesarias para completar la acción |
-| Questions | Leen el estado y devuelven datos tipados: filas del carrito, direcciones del checkout, total, usuario autenticado | No hacen aserciones. Devuelven datos y el paso decide |
-| Interactions | Acciones técnicas que no pertenecen a una página: capturar el pago, inyectar errores, servir variantes del DOM, esperar respuestas | Solo red y protocolo. Las acciones de interfaz son métodos de los Page Objects |
-| Page Objects | Localizadores y acciones atómicas de una página o componente (cabecera, modal del carrito) | No conocen Gherkin, ni datos de negocio, ni otras páginas |
+| Step Definitions | Traducen cada paso a llamadas a Tasks, Questions o, si la acción es atómica, directamente a un método de Page Object. Los pasos `Entonces` hacen las aserciones; un `Dado` solo comprueba que la preparación se cumplió | Sin localizadores ni lógica de negocio. Usan `page` solo para aserciones de navegación (`toHaveURL`) |
+| Tasks | Objetivos de negocio que coordinan varias acciones: añadir un producto al carrito, registrar una cuenta, rellenar el pago, eliminar la cuenta | No hacen aserciones; las únicas esperas son las necesarias para completar la acción. No existen Tasks que envuelvan una sola acción |
+| Questions | Derivan información del estado observable: convierten el texto de la página en datos tipados (filas del carrito, producto listado, precios) | No hacen aserciones. Si basta un localizador de un Page Object, no se crea Question (sería una capa que solo delega) |
+| Interactions | Operaciones transversales que no pertenecen a una página: sincronización HTTP, guards de red y, más adelante, inyección de errores, variantes del DOM e interceptación del pago | Solo red y protocolo. Las acciones de interfaz son métodos de los Page Objects y no se duplican aquí |
+| Page Objects | Localizadores y acciones atómicas de una página o componente (listado, carrito, modal "Added!"). Exponen como propiedades de solo lectura los localizadores que los pasos necesitan comprobar | No conocen Gherkin, ni datos de negocio, ni otras páginas. No hacen aserciones; solo esperan estados para completar una acción |
 | Fixtures | Ciclo de vida: contextos con guards, cuentas, datos, cliente de IA, evidencias | Toda creación de recursos tiene su liberación |
 | Aserciones y evidencias | `expect` sobre lo que devuelven las Questions o sobre la red; adjuntos a los reportes | Solo en pasos `Entonces` o en guards de seguridad |
 
 **Screenplay sin abstracciones innecesarias.** Se adoptan Tasks, Questions e Interactions porque separan las acciones de las lecturas y hacen los pasos legibles. No se introducen `Actor` ni `Ability`: en una suite de un solo usuario por escenario, ese papel lo cumplen los fixtures de Playwright. Tasks y Questions son funciones que reciben los fixtures que necesitan, no jerarquías de clases.
 
+**Convenciones para conservar el reintento automático de Playwright:**
+
+- Cuando la respuesta es un **estado de interfaz** (un aviso visible, una fila presente), el paso comprueba un `Locator` del Page Object con `expect(...).toBeVisible()`, que reintenta solo.
+- Cuando la respuesta es un **valor** derivado (contenido del carrito, precios), la Question devuelve datos tipados y el paso la consulta con `expect.poll(...)`, que también reintenta. Nunca se usan booleanos de `isVisible()` como oráculo.
+- No se usan esperas fijas (`waitForTimeout`). Las acciones se sincronizan por respuesta HTTP (`performAndAwaitResponse`) o por estado de un elemento (`waitFor`).
+
+**Contexto de escenario.** Los pasos de un escenario comparten datos mediante el fixture `scenario` (`ScenarioContext`): `remember(clave, valor)` y `recall(clave)` con claves y tipos declarados en la interfaz `ScenarioMemory`. `recall` falla con un mensaje claro si un paso anterior no registró el dato. Se crea una instancia por test, así que no hay estado compartido entre escenarios.
+
 ## 2. Estructura de directorios propuesta
 
-Es la estructura objetivo. La foundation (Fase 2) creó `features/`, `steps/common`, `steps/ai`, `src/config`, `src/fixtures` y `src/support`; el resto de carpetas se crean en la fase que las necesita.
+Es la estructura objetivo. La foundation (Fase 2) creó `features/`, `steps/common`, `steps/ai`, `src/config`, `src/fixtures` y `src/support`. La Fase 3 añadió `src/pages` (con `app.ts` y `components/`), `src/tasks`, `src/questions` e `src/interactions`. El resto de carpetas se crean en la fase que las necesita. No hay carpeta `api/`: las APIs de la aplicación no están verificadas y ningún escenario las necesita.
 
 ```
 features/              escenarios .feature por capacidad
@@ -89,7 +97,10 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 
 | Fixture | Alcance | Crea | Libera |
 |---|---|---|---|
-| Contexto protegido | Test | Contexto de navegador con los guards de red (sección 7). Los contextos adicionales, como un login desde una sesión nueva, se crean también con este fixture | Cierra los contextos |
+| Guards de red (`networkGuards`, automático) | Test | Instala los guards de la sección 7 en el contexto de navegador del test antes de cualquier navegación y anota en el reporte lo bloqueado | Playwright cierra el contexto |
+| Page Objects (`app`) | Test | `App`: los Page Objects del escenario sobre su `page` | — |
+| Contexto de escenario (`scenario`) | Test | `ScenarioContext` vacío | — |
+| Contexto adicional protegido | Test | Contextos nuevos, como un login desde otra sesión, con los mismos guards. **Pendiente**: llega con la primera vertical que lo necesite | Cierra los contextos |
 | Datos sintéticos | Test | Perfil y tarjeta del generador local con una semilla derivada del ID de ejecución y del escenario; la semilla se adjunta | — |
 | Cuenta aislada | Test | Registro por interfaz con los datos sintéticos | Elimina la cuenta y la verifica (sección 6) |
 | Sesión compartida | Proyecto `setup` | Cuenta y `storageState` para escenarios `@shared-session` | Proyecto `cleanup` |
@@ -109,13 +120,16 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 
 ## 7. Guards de red y seguridad
 
-Se aplican en cada contexto creado por el fixture de contexto protegido.
+Los instala el fixture automático `networkGuards` (`src/interactions/network-guards.ts`) en el contexto de cada test.
 
 | Guard | Regla | Motivo |
 |---|---|---|
-| Pago | Todo `POST` a `/payment` se aborta, en todos los proyectos y escenarios. No se puede desactivar. El escenario de pago puede observar la petición antes del aborto | Restricción de seguridad del proyecto |
-| Anuncios y telemetría | Se abortan las peticiones a los dominios de una lista documentada (AdSense, DoubleClick, Funding Choices, adtech y telemetría) | Los anuncios bloquean clics y cambian la URL a `#google_vignette` |
-| Estado en sesión compartida | En `@shared-session` se abortan `/add_to_cart`, `/delete_cart` y `/delete_account` y el escenario falla | Proteger la sesión compartida |
+| Pago | Todo `POST` a `/payment` del origen de la aplicación se aborta (`blockedbyclient`), en todos los proyectos y escenarios. No se puede desactivar. Las peticiones abortadas quedan registradas (`paymentRequests`) para que el escenario de pago las inspeccione. Otros métodos a `/payment` (el `GET` de la página) siguen su curso | Restricción de seguridad del proyecto. Si en el futuro se necesita un pago simulado, se resolverá en local desde este guard (`route.fulfill`), de modo que la petición siga sin salir del navegador |
+| Anuncios | Se abortan las peticiones cuyo host es, o termina en, `googlesyndication.com`, `doubleclick.net`, `googleadservices.com`, `adtrafficquality.google` o `fundingchoicesmessages.google.com` | Los anuncios bloquean clics y cambian la URL a `#google_vignette`. Las redes publicitarias secundarias solo las cargan estos scripts, así que no necesitan regla propia |
+| Telemetría | Se abortan `cloudflareinsights.com` y, en el origen de la aplicación, las rutas que empiezan por `/cdn-cgi/rum` | Ruido en la red y en la consola |
+| Estado en sesión compartida | En `@shared-session` se abortan `/add_to_cart`, `/delete_cart` y `/delete_account` y el escenario falla. **Pendiente**: llega con la sesión compartida | Proteger la sesión compartida |
+
+Las reglas comparan host y ruta exactos, no subcadenas, así que no pueden bloquear recursos de la aplicación. En la verificación de la Fase 3 solo se bloquearon `pagead2.googlesyndication.com` y `static.cloudflareinsights.com`, y ninguna petición a `automationexercise.com` falló. Cada test anota en el reporte cuántas peticiones se bloquearon, en qué hosts, y cuántos `POST /payment` se abortaron.
 
 El cliente de Anthropic se ejecuta en Node, no en el navegador, por lo que `page.route` no lo intercepta. Su aislamiento se garantiza en el fixture del cliente de IA (sección 8).
 
