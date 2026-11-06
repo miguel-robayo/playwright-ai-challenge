@@ -16,7 +16,7 @@
     "test:headed": "playwright test --project=functional --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --project=functional --debug",
-    "test:list": "playwright test --list",
+    "test:list": "playwright test --list --reporter=list",
     "bddgen": "bddgen",
     "report": "playwright show-report",
     "report:allure": "allure generate allure-results --output allure-report --clean",

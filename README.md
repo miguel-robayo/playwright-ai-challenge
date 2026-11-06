@@ -153,6 +153,7 @@ La estructura completa prevista (Page Objects, Tasks, Questions, Interactions, d
 > ```
 >
 > Política completa en [docs/architecture.md](docs/architecture.md), sección 10.1.
+- **Flujo de cada escenario:** una captura después de cada paso Gherkin (`Pantalla: <paso>`), con las contraseñas enmascaradas.
 - **Por escenario:** inventario de cuentas creadas con su estado de limpieza, datos sintéticos con la contraseña censurada, el `POST /payment` interceptado y saneado, la evidencia de IA (solo con API key) y el resumen de los guards de red como anotación.
 - **Peticiones y respuestas:** solo se adjunta el `POST /payment` interceptado; las de registro, login y carrito se comprueban en los pasos, pero no se adjuntan (R-25, cobertura parcial).
 

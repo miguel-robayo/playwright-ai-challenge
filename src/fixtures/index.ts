@@ -210,4 +210,4 @@ export const test = base.extend<FrameworkFixtures>({
   ],
 });
 
-export const { Given, When, Then } = createBdd(test);
+export const { Given, When, Then, AfterStep } = createBdd(test);

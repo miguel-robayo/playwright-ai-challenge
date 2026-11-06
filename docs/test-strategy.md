@@ -205,14 +205,14 @@ Escenarios reales contra Anthropic (proyecto `ai`, etiqueta `@ai`; se omiten sin
 # language: es
 @ai
 Característica: Aserciones semánticas con IA
-  Antecedentes:
+  Escenario: El aviso de checkout cumple la intención esperada
     Dado un usuario anónimo con un producto en el carrito
     Cuando el usuario continúa al checkout
-
-  Escenario: El aviso de checkout cumple la intención esperada
     Entonces el aviso de checkout cumple la intención "pide al usuario registrarse o iniciar sesión para poder continuar con la compra"
 
   Escenario: El aviso de checkout no cumple una intención contraria
+    Dado un usuario anónimo con un producto en el carrito
+    Cuando el usuario continúa al checkout
     Entonces el aviso de checkout no cumple la intención "confirma que el pedido se ha realizado correctamente"
 ```
 
