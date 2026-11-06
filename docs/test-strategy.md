@@ -66,7 +66,6 @@ Escenarios en español, ejecutables con `playwright-bdd` mediante la directiva `
 | `@resilience` | Variantes del DOM |
 | `@security` | Interceptación del pago |
 | `@ai` | Usa Anthropic real; proyecto `ai` |
-| `@mock` | Cliente de IA simulado; proyecto `functional` |
 
 Las etiquetas son identificadores técnicos que usa la configuración de Playwright para filtrar proyectos y activar fixtures; por eso conservan su forma original.
 
@@ -273,7 +272,7 @@ No hay escenarios negativos de formato de tarjeta. El cliente no valida el forma
 | Correo | Siempre local | Único por cuenta, en el dominio reservado `example.com` |
 | Tarjeta | Siempre local, determinista con semilla | 16 dígitos que fallan Luhn, CVC y vencimiento sintéticos. Fallar Luhn reduce la probabilidad de coincidir con una tarjeta real, pero la protección efectiva es la interceptación del pago |
 
-Ningún dato se escribe como literal en los escenarios. Los valores concretos solo existen en el generador o en el contenido controlado de las pruebas de IA.
+Ningún dato se escribe como literal en los escenarios. Los valores concretos solo existen en los generadores (local o propuesto por la IA y validado por el framework).
 
 ## 7. Validación de IA
 
@@ -309,7 +308,7 @@ Fuera de la primera implementación (Opción A, opcional). Sus controles están 
 | Modifica la cuenta, la sesión o el carrito | Cuenta aislada, propia del escenario |
 | Solo lectura autenticada (`@shared-session`) | Sesión compartida del proyecto `setup`, con guard contra cambios de estado |
 | Anónimo | Sin cuenta; el carrito anónimo se descarta con el contexto |
-| `@mock` y variantes del DOM | Sin cuenta |
+| Variantes del DOM, error de red simulado y escenarios de IA sin registro | Sin cuenta |
 
 **Limpieza y recuperación:**
 

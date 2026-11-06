@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2) y checkout autenticado y anónimo (Iteración 3) pago seguro con el POST /payment interceptado y abortado (Iteración 4), y limpieza de cuentas, manejo de errores de red y resiliencia de localizadores (Iteración 5). La suite funcional de la estrategia está completa, y la Fase 5 integra la IA (opciones B y C).
+> **Estado:** suite funcional completa (15 escenarios BDD de la estrategia: registro y autenticación, productos y carrito, checkout, pago seguro con el `POST /payment` interceptado y abortado, limpieza, errores de red y resiliencia), integración de IA con Anthropic (opciones B y C) y CI básico en GitHub Actions. La ejecución real de los escenarios `@ai` está pendiente de una `ANTHROPIC_API_KEY`: hasta entonces se validan con respuestas simuladas (`ai-unit`).
 
 ## Documentación
 
@@ -155,14 +155,26 @@ La estructura completa prevista (Page Objects, Tasks, Questions, Interactions, d
 > Política completa en [docs/architecture.md](docs/architecture.md), sección 10.1.
 - **Por escenario:** inventario de cuentas creadas con su estado de limpieza, perfiles sintéticos con la contraseña censurada y resumen de los guards de red.
 
+## Integración continua
+
+`.github/workflows/ci.yml` (GitHub Actions) se ejecuta en cada push a `main` y `feature/**`, en los pull requests y a mano:
+
+1. `npm ci` e instalación de Chromium.
+2. `npm run validate` (typecheck, lint, formato y descubrimiento de tests).
+3. `npm run test:ai-unit` (cliente de IA con respuestas simuladas, sin red ni clave).
+4. Suite funcional con `TEST_ENV=ci` (2 workers, 1 reintento), sin API key.
+5. Escenarios `@ai` **solo si** existe el secreto `ANTHROPIC_API_KEY`; el modelo se puede fijar con la variable de repositorio `AI_MODEL`. La clave solo llega a ese paso.
+
+El workflow **no sube artefactos**: las trazas y los reportes de un fallo pueden contener contraseñas sintéticas y el token CSRF (ver [docs/architecture.md](docs/architecture.md), sección 10.1). Los fallos se leen en el log del job.
+
 ## Desafíos de IA
 
 El enunciado exige al menos dos de tres desafíos. Se seleccionaron:
 
 | Opción | Desafío | Estado |
 |---|---|---|
-| B | Aserciones semánticas: `expectAI(cliente, texto, criterio)` → `{ passed, reason }` validado con Zod | Implementada (`src/ai/expect-ai.ts`) |
-| C | Generación de datos sintéticos con Anthropic, validados con Zod y reglas de negocio | Implementada (`src/ai/profile-generator.ts`) |
+| B | Aserciones semánticas: `expectAI(cliente, texto, criterio)` → `{ passed, reason }` validado con Zod | Implementada (`src/ai/expect-ai.ts`); validación real pendiente de API key |
+| C | Generación de datos sintéticos con Anthropic, validados con Zod y reglas de negocio | Implementada (`src/ai/profile-generator.ts`); validación real pendiente de API key |
 | A | Selectores auto-reparables (self-healing) | Opcional; fuera de la primera implementación |
 
 La justificación está en [docs/requirements-analysis.md](docs/requirements-analysis.md), sección 4, y la estrategia de validación en [docs/test-strategy.md](docs/test-strategy.md), sección 7.

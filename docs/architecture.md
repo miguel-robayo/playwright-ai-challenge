@@ -60,7 +60,7 @@ playwright.config.ts
 
 - Cada proyecto se declara con `defineBddProject`, a partir de unas opciones comunes (rutas de features, idioma `es`, fallo en la generación si falta un paso). Cada proyecto define sus propios pasos y su expresión de etiquetas, y genera sus tests en `.features-gen/<proyecto>`. `playwright-bdd` genera los tests de Playwright a partir de los `.feature` (`bddgen`).
 - `createBdd(test)` recibe el `test` extendido con los fixtures propios, de modo que los step definitions usan los mismos fixtures que un test de Playwright.
-- Las etiquetas de Gherkin (`@ai`, `@mock`, `@shared-session`, `@security`…) se convierten en etiquetas de Playwright y se usan para filtrar proyectos y activar fixtures.
+- Las etiquetas de Gherkin (`@ai`, `@shared-session`, `@security`, `@negative`…) se convierten en etiquetas de Playwright y se usan para filtrar proyectos y activar fixtures.
 - `playwright.config.ts` ejecuta `bddgen` en el proceso principal antes de que Playwright busque los tests: no lo hace en los workers (`TEST_WORKER_INDEX`) ni durante el propio `bddgen` (`PLAYWRIGHT_BDD_GEN`). Así los comandos del enunciado (`npx playwright test`, `--ui`, `show-report`) funcionan sin un paso previo (Q-05). `npm run bddgen` queda disponible para generar sin ejecutar.
 - Los step definitions de `steps/ai` solo forman parte del proyecto `ai`. Se verificó en la foundation que los workers de `functional` no los importan.
 
@@ -73,7 +73,7 @@ Son dos dimensiones independientes.
 | Proyecto | Contenido | Dependencias |
 |---|---|---|
 | `setup` | Crea la cuenta de sesión compartida y guarda el `storageState` | — |
-| `functional` | Todos los escenarios sin `@ai`, incluidos los `@mock` | `setup` |
+| `functional` | Todos los escenarios sin `@ai` | `setup` |
 | `ai` | Solo escenarios `@ai`; usan Anthropic real | — |
 | `ai-unit` | Pruebas del cliente de IA con respuestas simuladas (`tests/ai-unit`): sin red ni API key | — |
 | `cleanup` | Elimina la cuenta de sesión compartida (teardown de `setup`) | — |
@@ -109,7 +109,7 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 | Sesión compartida | Proyectos `setup` / `cleanup` | Cuenta, credenciales de recuperación y `storageState` en `.auth/` (sección 6) | El proyecto `cleanup` elimina y verifica la cuenta; borra `.auth/` solo si lo consigue |
 | `storageState` (sobrescrito) | Test | En escenarios `@shared-session`, la sesión de `.auth/shared-session.json`; en el resto, ninguna | — |
 | `sharedAccount` | Test | Nombre y correo de la cuenta compartida (nunca la contraseña) | — |
-| Cliente de IA | Test | Mock en `functional`; cliente de Anthropic real solo en `ai` | — |
+| Cliente de IA (`ai`) | Test | Cliente de Anthropic, solo en el proyecto `ai` y con API key; fuera de él, pedirlo es un error. Las pruebas con respuestas simuladas (`ai-unit`) crean el cliente con un `fetch` falso | Adjunta `ia-interacciones.json` |
 | Evidencias | Test | Registro de peticiones clave, interacciones de IA e inventario de cuentas | Adjunta todo al reporte |
 
 ## 6. Aislamiento y autenticación
@@ -214,7 +214,7 @@ tests/ai-unit/          pruebas del cliente con respuestas simuladas (proyecto a
 
 **Dónde aparecen.** Verificado con una contraseña centinela y un test fallido: la traza está en `test-results/` y se copia automáticamente a `playwright-report/data/` (reporte HTML) y a `allure-results/` (adjunto `application/vnd.allure.playwright-trace` de `allure-playwright`, sin opción para excluirlo); `npm run report:allure` la incluye en `allure-report/`. En archivos de texto plano, consola, títulos de pasos y adjuntos JSON hay 0 apariciones. Por tanto, **el reporte HTML y el reporte de Allure de una ejecución con fallos son tan sensibles como las trazas**.
 
-**Publicación.** Hoy no existe ningún mecanismo que publique artefactos: no hay CI, y `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` están ignorados por Git (comprobado con `git check-ignore`; ninguno está versionado). Los comandos `report` y `report:allure:open` solo sirven los reportes en la máquina local. Condición para la fase de CI: ningún workflow podrá publicar trazas ni reportes HTML/Allure de ejecuciones con fallos como artefactos públicos sin retirar antes los adjuntos de traza.
+**Publicación.** Ningún mecanismo publica artefactos. El workflow de CI (`.github/workflows/ci.yml`) no usa `upload-artifact`: las trazas y los reportes se quedan en el runner y se descartan, y los fallos se leen con el reportero `list` en el log. En local, `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` están ignorados por Git (comprobado con `git check-ignore`; ninguno está versionado). Los comandos `report` y `report:allure:open` solo sirven los reportes en la máquina local. Condición para cualquier cambio futuro del CI: ningún workflow podrá publicar trazas ni reportes HTML/Allure de ejecuciones con fallos sin retirar antes los adjuntos de traza.
 
 **Retención y eliminación.** Cada artefacto vive hasta la siguiente ejecución:
 

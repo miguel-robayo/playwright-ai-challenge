@@ -59,7 +59,7 @@ Estado de cobertura: **Cubierto**, **Parcial** (con justificación en la secció
 | Obstáculo (§1) | Situación en Automation Exercise | Cómo se aborda |
 |---|---|---|
 | 1. Cambios deliberados en los selectores | La aplicación no cambia sus selectores. Hay que simular los cambios | Política de localizadores basada en contratos estables (rol, nombre accesible, `data-qa`) y pruebas con variantes del DOM servidas mediante `route.fulfill`. Unas variantes deben tolerarse y otras deben fallar de forma explícita. La Opción A sería una capa adicional opcional |
-| 2. Texto variable con intención constante | No hay contenido dinámico natural: descripciones, mensajes y productos son estáticos | Opción B sobre texto real de la interfaz y sobre **contenido controlado**, inyectado con `route.fulfill` y etiquetado como simulación |
+| 2. Texto variable con intención constante | No hay contenido dinámico natural: descripciones, mensajes y productos son estáticos | Opción B sobre el **texto real** de la interfaz (aviso del checkout), con un criterio que debe cumplirse y otro contrario que no. No se inyecta contenido: la aplicación no tiene textos variables propios (Q-03) |
 | 3. Datos sintéticos en tiempo real sin valores *hardcoded* | Registro con 12 campos de cuenta y dirección; pago con 5 campos sin validación de formato | Generador local con semilla por ejecución para la suite funcional, y Opción C para generar perfiles con IA. Los dos se validan con el mismo esquema Zod |
 
 ## 4. Desafíos de IA seleccionados
@@ -70,9 +70,9 @@ El enunciado exige al menos dos de las tres opciones (R-15). Las tres se evaluar
 |---|---|---|---|
 | Valor funcional | Medio: la aplicación no cambia sus selectores, así que solo actúa sobre roturas simuladas | Alto: es la única forma de cubrir el obstáculo 2 | Alto: alimenta el registro real y cubre el obstáculo 3 |
 | Testabilidad | Baja: una reparación correcta es difícil de distinguir de una que oculta un defecto | Alta: hay casos que deben pasar y casos que deben fallar | Alta: esquema Zod, reglas de negocio y uso real en el registro |
-| Reproducibilidad | Baja: el selector propuesto puede variar entre ejecuciones | Media: temperatura baja, salida estructurada y umbral de confianza | Media: la salida varía por diseño ("no deterministas"), pero se adjunta y se valida |
+| Reproducibilidad | Baja: el selector propuesto puede variar entre ejecuciones | Media: salida estructurada `{ passed, reason }` validada con Zod y esfuerzo bajo | Media: la salida varía por diseño ("no deterministas"), pero se adjunta y se valida |
 | Manejo de errores | Complejo: el fallo ocurre en mitad de una interacción | Simple: cualquier error del proveedor hace fallar la aserción | Simple: una respuesta inválida se rechaza |
-| Control de falsos positivos | Débil: puede convertir una regresión real en un pase | Fuerte: casos negativos y de inyección de prompt obligatorios | Fuerte: los datos se verifican después con aserciones deterministas en la aplicación |
+| Control de falsos positivos | Débil: puede convertir una regresión real en un pase | Fuerte: caso negativo obligatorio; texto evaluado delimitado y escapado frente a instrucciones inyectadas (probado con respuestas simuladas) | Fuerte: los datos se verifican después con aserciones deterministas en la aplicación |
 
 **Selección:**
 
@@ -117,13 +117,13 @@ Los escenarios están definidos en [test-strategy.md](test-strategy.md).
 |---|---|---|
 | Q-01 | ¿Se acepta un flujo que termina en la interceptación del pago, sin compra real? | Se documenta como cobertura parcial de R-02 (sección 5) |
 | Q-02 | ¿Los "cambios deliberados en los selectores" los introduce el candidato o el evaluador? | Los simulamos nosotros con variantes del DOM |
-| Q-03 | ¿Se acepta contenido controlado para la Opción B, dado que la aplicación no tiene textos variables? | Se usa y se etiqueta como simulación |
+| Q-03 | ¿Se acepta contenido controlado para la Opción B, dado que la aplicación no tiene textos variables? | Resuelta sin contenido controlado: la Opción B evalúa el texto real del aviso de checkout frente a un criterio que debe cumplirse y otro contrario |
 | Q-04 | ¿Qué significa "comandos por entorno"? | Entornos `local` y `ci` ([architecture.md](architecture.md)) |
 | Q-05 | `npx playwright test` debe funcionar directamente, pero `playwright-bdd` necesita generar antes los tests (`bddgen`) | Resuelta: `playwright.config.ts` ejecuta `bddgen` antes del descubrimiento de tests ([architecture.md](architecture.md), sección 3) |
 | Q-06 | Los Entregables piden Allure; el CLI clásico de Allure necesita Java | Resuelta: se usa el CLI de Allure 3, distribuido por npm, que no requiere Java. Su prerrequisito real es Node ≥ 22.18 |
 | Q-07 | El ejemplo de `.env` usa OpenAI, `gpt-4o-mini` y SauceDemo | Se adapta a Anthropic, un modelo Claude configurable y Automation Exercise |
 | Q-08 | No se documenta qué debe hacer la interfaz ante un error de red | Solo se verifica lo observable: la confirmación no aparece |
-| Q-09 | El enunciado no exige integración continua | Se considerará opcional en la Fase 2 |
+| Q-09 | El enunciado no exige integración continua | Resuelta: CI básico en GitHub Actions (`.github/workflows/ci.yml`), sin publicar artefactos; IA solo con el secreto configurado |
 
 ## 8. Restricciones propias del proyecto
 
