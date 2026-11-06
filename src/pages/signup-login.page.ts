@@ -9,9 +9,15 @@ export class SignupLoginPage {
    * use debe comprobar su visibilidad y su texto.
    */
   readonly loginError: Locator;
+  readonly loginEmailField: Locator;
+  readonly loginPasswordField: Locator;
+  readonly loginButton: Locator;
 
   constructor(private readonly page: Page) {
     this.loginError = page.locator('form[action="/login"] p');
+    this.loginEmailField = page.getByTestId('login-email');
+    this.loginPasswordField = page.getByTestId('login-password');
+    this.loginButton = page.getByRole('button', { name: 'Login', exact: true });
   }
 
   async open(): Promise<void> {
@@ -25,9 +31,18 @@ export class SignupLoginPage {
     await this.page.getByTestId('signup-button').click();
   }
 
+  /** Rellena el formulario de login sin enviarlo. `timeout` limita la espera de cada campo. */
+  async fillLogin(
+    email: string,
+    password: string,
+    options: { timeout?: number } = {},
+  ): Promise<void> {
+    await this.loginEmailField.fill(email, options);
+    await fillSecret(this.loginPasswordField, password, options);
+  }
+
   async submitLogin(email: string, password: string): Promise<void> {
-    await this.page.getByTestId('login-email').fill(email);
-    await fillSecret(this.page.getByTestId('login-password'), password);
+    await this.fillLogin(email, password);
     await this.page.getByTestId('login-button').click();
   }
 }

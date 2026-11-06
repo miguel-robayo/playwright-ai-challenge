@@ -9,14 +9,22 @@ import type { Locator } from '@playwright/test';
  * Limitación: las trazas de Playwright siguen registrando el valor (instantáneas del DOM
  * y cuerpo de las peticiones); ver docs/architecture.md, sección 10.
  */
-export async function fillSecret(field: Locator, secret: string): Promise<void> {
-  await field.evaluate((element, value) => {
-    if (!(element instanceof HTMLInputElement)) {
-      throw new Error('fillSecret solo admite elementos <input>');
-    }
-    element.focus();
-    element.value = value;
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  }, secret);
+export async function fillSecret(
+  field: Locator,
+  secret: string,
+  options: { timeout?: number } = {},
+): Promise<void> {
+  await field.evaluate(
+    (element, value) => {
+      if (!(element instanceof HTMLInputElement)) {
+        throw new Error('fillSecret solo admite elementos <input>');
+      }
+      element.focus();
+      element.value = value;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    secret,
+    options,
+  );
 }

@@ -81,3 +81,17 @@ export async function deleteAccount(session: App): Promise<void> {
   );
   await session.accountConfirmation.accountDeleted.waitFor();
 }
+
+/**
+ * Objetivo de negocio: el usuario elimina su propia cuenta. Además de eliminarla,
+ * actualiza el ledger para que el teardown solo verifique (y no intente eliminarla otra vez).
+ */
+export async function deleteRegisteredAccount(
+  session: App,
+  accounts: AccountLedger,
+  email: string,
+): Promise<void> {
+  accounts.recordDeletionAttempt(email);
+  await deleteAccount(session);
+  accounts.recordDeleted(email);
+}

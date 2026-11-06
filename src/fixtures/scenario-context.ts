@@ -18,6 +18,8 @@ export interface ScenarioMemory {
   listedProduct: ListedProduct;
   /** Contenido del carrito al terminar la preparación, para comprobar su persistencia. */
   cartSnapshot: readonly CartLine[];
+  /** Error capturado al usar un localizador sobre una variante del DOM (pruebas de resiliencia). */
+  locatorError: Error;
   /** Tarjeta sintética enviada en el formulario de pago. */
   paymentCard: PaymentCard;
   /** Perfil sintético del usuario del escenario. */

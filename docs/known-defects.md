@@ -105,7 +105,7 @@ Estados de verificación:
 | Comportamiento | `static/js/cart.js` solo maneja la respuesta correcta de `/add_to_cart`. No hay manejo de error, así que ante un fallo no aparecería ni el modal ni ningún mensaje |
 | Evidencia | Código de `cart.js` |
 | Impacto | El usuario no sabe que el producto no se añadió |
-| Limitaciones | Sin ejecutar. Se verificará de forma segura con `route.fulfill` en el escenario "Una petición fallida de añadir al carrito no muestra confirmación" |
+| Limitaciones | Ejecutado de forma segura en la Fase 4 con un 500 servido en local (`route.fulfill`): el modal no aparece. El escenario no comprueba si hay algún otro aviso de error, porque la estrategia no lo exige |
 
 ### KD-11 · `GET /delete_cart/{id}` modifica el carrito
 
