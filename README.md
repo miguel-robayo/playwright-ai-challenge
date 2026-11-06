@@ -153,7 +153,8 @@ La estructura completa prevista (Page Objects, Tasks, Questions, Interactions, d
 > ```
 >
 > Política completa en [docs/architecture.md](docs/architecture.md), sección 10.1.
-- **Por escenario:** inventario de cuentas creadas con su estado de limpieza, perfiles sintéticos con la contraseña censurada y resumen de los guards de red.
+- **Por escenario:** inventario de cuentas creadas con su estado de limpieza, datos sintéticos con la contraseña censurada, el `POST /payment` interceptado y saneado, la evidencia de IA (solo con API key) y el resumen de los guards de red como anotación.
+- **Peticiones y respuestas:** solo se adjunta el `POST /payment` interceptado; las de registro, login y carrito se comprueban en los pasos, pero no se adjuntan (R-25, cobertura parcial).
 
 ## Integración continua
 
@@ -176,6 +177,8 @@ El enunciado exige al menos dos de tres desafíos. Se seleccionaron:
 | B | Aserciones semánticas: `expectAI(cliente, texto, criterio)` → `{ passed, reason }` validado con Zod | Implementada (`src/ai/expect-ai.ts`); validación real pendiente de API key |
 | C | Generación de datos sintéticos con Anthropic, validados con Zod y reglas de negocio | Implementada (`src/ai/profile-generator.ts`); validación real pendiente de API key |
 | A | Selectores auto-reparables (self-healing) | Opcional; fuera de la primera implementación |
+
+**Estado de la validación de IA:** la integración con Anthropic está implementada y las 19 pruebas con respuestas simuladas (`npm run test:ai-unit`) pasan. Los 4 escenarios `@ai` reales se omiten por ausencia de credenciales: la validación contra el proveedor real está **pendiente** por decisión de seguridad y de gestión de credenciales, y no debe considerarse validada.
 
 La justificación está en [docs/requirements-analysis.md](docs/requirements-analysis.md), sección 4, y la estrategia de validación en [docs/test-strategy.md](docs/test-strategy.md), sección 7.
 

@@ -192,11 +192,13 @@ tests/ai-unit/          pruebas del cliente con respuestas simuladas (proyecto a
 ## 10. Reportes y evidencias
 
 - **Playwright:** `trace: 'retain-on-failure'`, `screenshot: 'only-on-failure'`, `video: 'retain-on-failure'`, reporte HTML.
-- **Allure:** `allure-playwright` escribe `allure-results`. Un global setup vacía ese directorio al inicio de cada ejecución, porque el reporter no lo limpia y el reporte mezclaría ejecuciones. El reporte se genera con el CLI de Allure 3, que es un paquete de npm y no requiere Java. Además de los artefactos de Playwright, incluirá estos adjuntos, que se implementan en las fases siguientes:
-  - Peticiones clave: `POST /signup` de los dos pasos, `GET /add_to_cart`, `POST /login` y el `POST /payment` interceptado, con la marca de aborto.
-  - Interacciones de IA: prompt, respuesta sin procesar, resultado validado, modelo y latencia.
-  - Semilla y datos sintéticos de cada escenario.
-  - Inventario de cuentas creadas con su estado de limpieza.
+- **Allure:** `allure-playwright` escribe `allure-results`. Un global setup vacía ese directorio al inicio de cada ejecución, porque el reporter no lo limpia y el reporte mezclaría ejecuciones. El reporte se genera con el CLI de Allure 3, que es un paquete de npm y no requiere Java. Además de los artefactos de Playwright en los fallos (captura, video y traza), el reporte contiene exactamente estos adjuntos:
+  - `datos-sinteticos.json`: semilla y datos generados en el escenario (perfil con la contraseña censurada, tarjeta sintética, correo reservado y perfil propuesto por la IA).
+  - `inventario-cuentas.json` e `inventario-cuenta-compartida.json`: cuentas creadas y su estado de limpieza (sin contraseñas).
+  - `pago-interceptado.json`: el `POST /payment` interceptado, saneado (método, URL, `Content-Type`, campos de la tarjeta sintética, `csrfTokenPresent`, error de aborto y número de respuestas).
+  - `ia-interacciones.json`: solo en escenarios `@ai` ejecutados con API key. Operación, modelo, latencia, tokens, `stop_reason`, resultado y salida validada. **No incluye el prompt ni la respuesta sin procesar.**
+  - Anotaciones del test (no son adjuntos): `network-guards` (bloqueos y pagos abortados), `cleanup-error`, `blocked-state-change`, `setup-recovery` y `shared-session`.
+- **Peticiones y respuestas (R-25, cobertura parcial).** Solo el `POST /payment` interceptado se adjunta como evidencia de red. Las peticiones de registro, login y carrito (`POST /signup`, `POST /login`, `GET /add_to_cart`) se comprueban en los pasos, pero **no se adjuntan** al reporte.
 - **Censura:** los adjuntos nunca incluyen cookies, tokens CSRF ni contraseñas. Los datos de tarjeta son sintéticos y se adjuntan para inspeccionar la petición interceptada.
 - **Contraseñas en reportes.** `locator.fill(valor)` aparece como `Fill "valor"` en el reporte HTML y en Allure. Los campos de contraseña se rellenan con la Interaction `fillSecret`, que aparece como `Evaluate` sin el valor. Verificado con una contraseña centinela: 0 apariciones en consola, `allure-results`, reporte HTML y adjuntos.
 

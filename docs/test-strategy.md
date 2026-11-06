@@ -297,6 +297,13 @@ Ningún dato se escribe como literal en los escenarios. Los valores concretos so
 - **Pruebas con respuestas simuladas (`ai-unit`):** 19 pruebas sin red ni clave cubren los positivos y negativos de `expectAI`, el escapado del texto, cada tipo de error, el límite de llamadas y las reglas de negocio del generador.
 - **Evidencia:** `ia-interacciones.json` por escenario (operación, modelo, latencia, tokens, `stop_reason`, resultado validado). Nunca la API key; las llamadas ocurren en Node y no forman parte de las trazas del navegador.
 
+### Estado de la validación de IA
+
+- Integración con Anthropic: implementada.
+- Pruebas con respuestas simuladas (`ai-unit`): 19/19.
+- Escenarios `@ai` reales: 4, omitidos por ausencia de credenciales.
+- Validación contra el proveedor real: **pendiente** por decisión de seguridad y de gestión de credenciales. No debe considerarse validada.
+
 ### Selectores auto-reparables (self-healing)
 
 Fuera de la primera implementación (Opción A, opcional). Sus controles están descritos en [architecture.md](architecture.md), sección 8. No sustituye a las pruebas de resiliencia de la sección 9.
