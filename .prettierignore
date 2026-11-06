@@ -6,5 +6,8 @@ allure-results/
 allure-report/
 package-lock.json
 
+# Reporte de Allure versionado como evidencia (generado)
+docs/evidencias/
+
 # La documentación se mantiene a mano (tablas y bloques Gherkin)
 *.md

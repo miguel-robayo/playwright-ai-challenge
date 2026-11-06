@@ -144,8 +144,9 @@ La estructura completa prevista (Page Objects, Tasks, Questions, Interactions, d
 - **Playwright HTML Report:** `playwright-report/`, abierto con `npm run report`.
 - **Allure:** `allure-results/` se vacía al inicio de cada ejecución; `npm run report:allure` genera `allure-report/`.
 - **En fallos:** se conservan trace, captura de pantalla y video en `test-results/`.
+- **Evidencia versionada:** [docs/evidencias/reporte-allure.html](docs/evidencias/reporte-allure.html) es el reporte de Allure de una ejecución completa sin fallos (36 aprobados, 4 `@ai` omitidos), en un único HTML que se abre con doble clic. Contexto, contenido y comprobaciones de datos sensibles en [docs/evidencias/README.md](docs/evidencias/README.md).
 
-> **Artefactos sensibles.** Las trazas de un test fallido contienen contraseñas sintéticas (instantáneas del DOM, parámetros de llamadas y cuerpos HTTP), y se copian al reporte HTML y al de Allure. Trata `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` como locales: están ignorados por Git, se reemplazan en cada ejecución y no deben publicarse. Para borrarlos tras revisar un fallo:
+> **Artefactos sensibles.** Las trazas de un test fallido contienen contraseñas sintéticas (instantáneas del DOM, parámetros de llamadas y cuerpos HTTP), y se copian al reporte HTML y al de Allure. Trata `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` como locales: están ignorados por Git, se reemplazan en cada ejecución y no deben publicarse. La única excepción es el reporte revisado de `docs/evidencias/`, generado a partir de una ejecución sin fallos. Para borrarlos tras revisar un fallo:
 >
 > ```bash
 > rm -rf test-results playwright-report allure-results allure-report
