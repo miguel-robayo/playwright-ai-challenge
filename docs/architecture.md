@@ -219,6 +219,8 @@ tests/ai-unit/          pruebas del cliente con respuestas simuladas (proyecto a
 
 **Publicación.** Ningún mecanismo publica artefactos. El workflow de CI (`.github/workflows/ci.yml`) no usa `upload-artifact`: las trazas y los reportes se quedan en el runner y se descartan, y los fallos se leen con el reportero `list` en el log. En local, `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` están ignorados por Git (comprobado con `git check-ignore`; ninguno está versionado). Los comandos `report` y `report:allure:open` solo sirven los reportes en la máquina local. Condición para cualquier cambio futuro del CI: ningún workflow podrá publicar trazas ni reportes HTML/Allure de ejecuciones con fallos sin retirar antes los adjuntos de traza.
 
+**Excepción: evidencia versionada.** `docs/evidencias/reporte-allure.html` es un reporte de Allure versionado como entregable. Solo puede proceder de una ejecución **sin fallos** (sin trazas ni videos) y se versiona después de comprobar que no contiene contraseñas, token CSRF, correos fuera de `@example.com`, tarjetas que superen Luhn ni claves de API. El procedimiento y el resultado de esas comprobaciones están en `docs/evidencias/README.md`.
+
 **Retención y eliminación.** Cada artefacto vive hasta la siguiente ejecución:
 
 | Directorio | Se elimina |
