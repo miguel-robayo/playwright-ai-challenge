@@ -1,3 +1,5 @@
+import type { RegistrationProfile } from '../data/registration-profile';
+import type { App } from '../pages/app';
 import type { ListedProduct } from '../questions/products.questions';
 
 /**
@@ -7,6 +9,13 @@ import type { ListedProduct } from '../questions/products.questions';
 export interface ScenarioMemory {
   /** Producto que la preparación del escenario añadió al carrito. */
   productInCart: ListedProduct;
+  /** Perfil sintético del usuario del escenario. */
+  profile: RegistrationProfile;
+  /**
+   * Sesión de navegador sobre la que actúan y comprueban los pasos. Si no se registra,
+   * es la del test (`app`); un paso que abre otra sesión la registra aquí.
+   */
+  activeSession: App;
 }
 
 /**
@@ -25,5 +34,10 @@ export class ScenarioContext {
       throw new Error(`El escenario no registró "${key}" en un paso anterior`);
     }
     return this.#values.get(key) as ScenarioMemory[K];
+  }
+
+  /** Como `recall`, pero devuelve `fallback` si el dato no se registró. */
+  recallOr<K extends keyof ScenarioMemory>(key: K, fallback: ScenarioMemory[K]): ScenarioMemory[K] {
+    return this.#values.has(key) ? this.recall(key) : fallback;
   }
 }

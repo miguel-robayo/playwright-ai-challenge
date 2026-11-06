@@ -91,6 +91,8 @@ En la foundation solo existen `functional` y `ai`. `setup` y `cleanup`, y la dep
 
 Si `TEST_ENV` no está definido, se usa `ci` cuando existe la variable `CI` y `local` en otro caso.
 
+En ambos entornos, cada acción tiene un límite de 15 s y cada navegación de 30 s (`src/config/timeouts.ts`). Se aplican también a los contextos de `browserSessions`, que no heredan la configuración de `use`.
+
 La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los parámetros de entorno) se carga de `.env`, con `process.loadEnvFile` de Node, y del entorno del proceso, que tiene prioridad. Se valida con Zod al arrancar. Una configuración inválida detiene la ejecución con un error claro. `AI_PROVIDER` solo admite `anthropic`.
 
 ## 5. Fixtures y ciclo de vida
@@ -100,23 +102,32 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 | Guards de red (`networkGuards`, automático) | Test | Instala los guards de la sección 7 en el contexto de navegador del test antes de cualquier navegación y anota en el reporte lo bloqueado | Playwright cierra el contexto |
 | Page Objects (`app`) | Test | `App`: los Page Objects del escenario sobre su `page` | — |
 | Contexto de escenario (`scenario`) | Test | `ScenarioContext` vacío | — |
-| Contexto adicional protegido | Test | Contextos nuevos, como un login desde otra sesión, con los mismos guards. **Pendiente**: llega con la primera vertical que lo necesite | Cierra los contextos |
-| Datos sintéticos | Test | Perfil y tarjeta del generador local con una semilla derivada del ID de ejecución y del escenario; la semilla se adjunta | — |
-| Cuenta aislada | Test | Registro por interfaz con los datos sintéticos | Elimina la cuenta y la verifica (sección 6) |
+| Contextos adicionales (`browserSessions`) | Test | `BrowserSessions.open()`: contexto nuevo con los mismos guards de red instalados antes de navegar y su propia `App`. Lo usan el login desde otra sesión y la limpieza | Cierra todos sus contextos |
+| Datos sintéticos (`syntheticData`) | Test | Perfiles del generador local (sección 6). Adjunta al reporte la semilla y los perfiles con la contraseña censurada | — |
+| Cuentas (`accounts`) | Test | `AccountLedger`: registra el ciclo de vida de cada cuenta que crea el test | Elimina y verifica cada cuenta (sección 6); adjunta el inventario |
 | Sesión compartida | Proyecto `setup` | Cuenta y `storageState` para escenarios `@shared-session` | Proyecto `cleanup` |
 | Cliente de IA | Test | Mock en `functional`; cliente de Anthropic real solo en `ai` | — |
 | Evidencias | Test | Registro de peticiones clave, interacciones de IA e inventario de cuentas | Adjunta todo al reporte |
 
 ## 6. Aislamiento y autenticación
 
-- El carrito vive en el servidor y está ligado a la cuenta ([test-strategy.md](test-strategy.md), sección 2). Por eso todo escenario que modifica la cuenta, la sesión o el carrito usa el fixture **Cuenta aislada**.
+- El carrito vive en el servidor y está ligado a la cuenta ([test-strategy.md](test-strategy.md), sección 2). Por eso todo escenario que modifica la cuenta, la sesión o el carrito registra su propia cuenta y la gestiona con el fixture `accounts`.
+- La sesión sobre la que actúan los pasos es la del test (`app`) salvo que un paso abra otra con `browserSessions` y la registre como `activeSession` en el contexto de escenario. No se sustituye `page` ni hay estado global.
 - Los escenarios `@shared-session` reutilizan el `storageState` del proyecto `setup` (R-09). Solo pueden leer: un guard aborta las rutas que modifican estado, `/add_to_cart`, `/delete_cart` y `/delete_account`, que son peticiones GET, y si se intenta alguna el escenario falla.
 - Las cuentas se crean y se eliminan **por la interfaz**, que es el mecanismo verificado durante el análisis. Las APIs `createAccount` y `deleteAccount` de la aplicación no se usan mientras no se verifiquen.
-- **Limpieza (teardown del fixture, con semántica `finally`):**
-  1. Se ejecuta aunque el escenario falle.
-  2. Abre `/delete_account` con la sesión de la cuenta y espera "Account Deleted!" visible.
-  3. En un contexto nuevo, intenta el login con las mismas credenciales y espera "Your email or password is incorrect!".
-  4. Registra el resultado en el inventario de cuentas. Un fallo de limpieza se informa como advertencia y no sustituye al error original del escenario.
+- **Ciclo de vida (`AccountLedger`).** Estados: `creation_attempted` (se registra **antes** de enviar el segundo paso del registro), `created` (el servidor respondió 302 a `/account_created`), `deletion_attempted`, `deleted`, `verified` (un login posterior fue rechazado), `not_created` y `cleanup_failed`.
+- **Limpieza (teardown del fixture `accounts`, con semántica `finally`):**
+  1. Se ejecuta aunque el escenario falle, con un margen de tiempo propio (90 s).
+  2. En un contexto nuevo y protegido, inicia sesión con las credenciales sintéticas. Si el login se acepta, elimina la cuenta con "Delete Account" (`GET /delete_account` → 200) y espera "Account Deleted!".
+  3. En otro contexto nuevo, intenta de nuevo el login: debe responder 200 (sin redirección) y mostrar "Your email or password is incorrect!". Solo entonces la cuenta pasa a `verified`.
+  4. Un login rechazado **no** se interpreta como eliminación: si la cuenta constaba como creada, el estado es `cleanup_failed`; si solo constaba el intento de creación, es `not_created`.
+  5. Adjunta el inventario (correo, nombre y estado; nunca la contraseña).
+  6. Si el escenario falló, un fallo de limpieza se añade como anotación `cleanup-error` y **no sustituye** al error original. Si el escenario pasó, un fallo de limpieza **hace fallar** el test.
+- **Datos sintéticos.** El perfil de registro se genera con Faker en una instancia propia con semilla y se valida con Zod (`RegistrationProfileSchema`) antes de entregarse.
+  - Semilla = `TEST_RUN_ID` + `testId` + `retry` + `repeatEachIndex` + índice del dato dentro del test. La misma combinación produce el mismo perfil; cambiar cualquier componente produce otro.
+  - `TEST_RUN_ID` lo fija `playwright.config.ts` una vez por ejecución (los workers lo heredan). Definirlo a mano reproduce los mismos datos.
+  - Correo `qa.<huella de la semilla>@example.com`, en un dominio reservado. País siempre entre los 7 del formulario.
+  - **La contraseña es la excepción al determinismo:** se genera con aleatoriedad criptográfica, para que la semilla pueda adjuntarse al reporte sin permitir reconstruir credenciales.
 
 ## 7. Guards de red y seguridad
 
@@ -176,3 +187,38 @@ src/ai/
   - Semilla y datos sintéticos de cada escenario.
   - Inventario de cuentas creadas con su estado de limpieza.
 - **Censura:** los adjuntos nunca incluyen cookies, tokens CSRF ni contraseñas. Los datos de tarjeta son sintéticos y se adjuntan para inspeccionar la petición interceptada.
+- **Contraseñas en reportes.** `locator.fill(valor)` aparece como `Fill "valor"` en el reporte HTML y en Allure. Los campos de contraseña se rellenan con la Interaction `fillSecret`, que aparece como `Evaluate` sin el valor. Verificado con una contraseña centinela: 0 apariciones en consola, `allure-results`, reporte HTML y adjuntos.
+
+### 10.1 Política de trazas y artefactos sensibles
+
+**Decisión aprobada:** se mantiene `trace: 'retain-on-failure'` en todos los escenarios, incluidos los que manejan credenciales, para cumplir R-10. Las trazas y los reportes que las contienen se tratan como **artefactos locales sensibles**.
+
+**Qué contienen.** Las trazas de un test fallido incluyen contraseñas sintéticas en tres lugares, y Playwright no ofrece forma de censurarlos:
+
+- Instantáneas del DOM (valor de los campos de contraseña).
+- Parámetros de las llamadas (incluido el argumento de `fillSecret`).
+- Cuerpos de las peticiones HTTP (`POST /signup`, `POST /login`).
+
+**Dónde aparecen.** Verificado con una contraseña centinela y un test fallido: la traza está en `test-results/` y se copia automáticamente a `playwright-report/data/` (reporte HTML) y a `allure-results/` (adjunto `application/vnd.allure.playwright-trace` de `allure-playwright`, sin opción para excluirlo); `npm run report:allure` la incluye en `allure-report/`. En archivos de texto plano, consola, títulos de pasos y adjuntos JSON hay 0 apariciones. Por tanto, **el reporte HTML y el reporte de Allure de una ejecución con fallos son tan sensibles como las trazas**.
+
+**Publicación.** Hoy no existe ningún mecanismo que publique artefactos: no hay CI, y `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` están ignorados por Git (comprobado con `git check-ignore`; ninguno está versionado). Los comandos `report` y `report:allure:open` solo sirven los reportes en la máquina local. Condición para la fase de CI: ningún workflow podrá publicar trazas ni reportes HTML/Allure de ejecuciones con fallos como artefactos públicos sin retirar antes los adjuntos de traza.
+
+**Retención y eliminación.** Cada artefacto vive hasta la siguiente ejecución:
+
+| Directorio | Se elimina |
+|---|---|
+| `test-results/` | Playwright lo vacía al empezar cada ejecución |
+| `playwright-report/` | Se reemplaza al terminar cada ejecución |
+| `allure-results/` | Lo vacía el global setup al empezar cada ejecución |
+| `allure-report/` | Se regenera con `--clean` en cada `npm run report:allure` |
+
+Tras revisar un fallo, o antes de compartir la máquina o el directorio, se eliminan manualmente:
+
+```bash
+rm -rf test-results playwright-report allure-results allure-report
+# PowerShell: Remove-Item -Recurse -Force test-results, playwright-report, allure-results, allure-report -ErrorAction SilentlyContinue
+```
+
+**Contraseñas.** Se generan con aleatoriedad criptográfica, una distinta por cuenta, y nunca se reutilizan ni se derivan de la semilla. No se escriben en consola, errores, títulos de pasos ni adjuntos.
+
+**Limpieza fallida.** Si una cuenta termina en `cleanup_failed` (o queda en `creation_attempted` sin resolver), **no se asume que su credencial quedó invalidada**. El inventario registra el correo, el último estado alcanzado y el error, y el test falla si el escenario había pasado. La contraseña no se guarda en ningún sitio salvo, si el test falló, en su traza: en ese caso la traza es la única vía para completar la limpieza manualmente y debe eliminarse después.

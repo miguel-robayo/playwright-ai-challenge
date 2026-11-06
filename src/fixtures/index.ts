@@ -3,7 +3,10 @@ import { loadEnv } from '../config/env';
 import { PROJECTS } from '../config/projects';
 import { NetworkGuards } from '../interactions/network-guards';
 import { App } from '../pages/app';
+import { AccountLedger } from './accounts';
+import { BrowserSessions } from './browser-sessions';
 import { ScenarioContext } from './scenario-context';
+import { SyntheticData } from './synthetic-data';
 
 const env = loadEnv();
 
@@ -16,11 +19,20 @@ interface FrameworkFixtures {
   app: App;
   /** Memoria tipada que comparten los pasos de un mismo escenario. */
   scenario: ScenarioContext;
+  /** Contextos de navegador adicionales, protegidos con los mismos guards. */
+  browserSessions: BrowserSessions;
+  /** Datos sintéticos deterministas del test. */
+  syntheticData: SyntheticData;
+  /** Ciclo de vida de las cuentas creadas por el test: se eliminan y verifican al terminar. */
+  accounts: AccountLedger;
 }
+
+/** Margen propio de la limpieza de cuentas: login, eliminación y verificación por cuenta. */
+const ACCOUNT_CLEANUP_TIMEOUT_MS = 90_000;
 
 /**
  * Test base del framework. Todo fixture tiene alcance de test: cada escenario
- * recibe su propio contexto de navegador, Page Objects y memoria.
+ * recibe su propio contexto de navegador, Page Objects, datos y memoria.
  */
 export const test = base.extend<FrameworkFixtures>({
   aiProjectGuard: [
@@ -58,6 +70,60 @@ export const test = base.extend<FrameworkFixtures>({
   scenario: async ({}, use) => {
     await use(new ScenarioContext());
   },
+
+  browserSessions: async ({ browser, baseURL }, use) => {
+    if (!baseURL) throw new Error('baseURL no configurada');
+    const sessions = new BrowserSessions(browser, baseURL);
+    await use(sessions);
+    await sessions.closeAll();
+  },
+
+  syntheticData: async ({}, use, testInfo) => {
+    if (!env.runId) throw new Error('TEST_RUN_ID no definido: playwright.config.ts debe fijarlo');
+    const data = new SyntheticData({
+      runId: env.runId,
+      testId: testInfo.testId,
+      retry: testInfo.retry,
+      repeatEachIndex: testInfo.repeatEachIndex,
+    });
+    await use(data);
+    if (data.generated.length > 0) {
+      // Sin contraseñas: el perfil adjunto está censurado y la contraseña no depende de la semilla.
+      await testInfo.attach('datos-sinteticos.json', {
+        body: JSON.stringify(data.generated, null, 2),
+        contentType: 'application/json',
+      });
+    }
+  },
+
+  accounts: [
+    async ({ browserSessions }, use, testInfo) => {
+      const ledger = new AccountLedger();
+      await use(ledger);
+
+      // Semántica finally: se ejecuta aunque el escenario haya fallado.
+      await ledger.cleanUp(browserSessions);
+      const inventory = ledger.inventory();
+      if (inventory.length === 0) return;
+      await testInfo.attach('inventario-cuentas.json', {
+        body: JSON.stringify(inventory, null, 2),
+        contentType: 'application/json',
+      });
+
+      const failures = inventory.filter((entry) => entry.state === 'cleanup_failed');
+      if (failures.length === 0) return;
+      const summary = failures
+        .map((entry) => `${entry.email}: ${entry.detail ?? 'sin detalle'}`)
+        .join('; ');
+      if (testInfo.status === testInfo.expectedStatus) {
+        // El escenario pasó: la limpieza fallida no puede quedar oculta.
+        throw new Error(`Limpieza de cuentas fallida: ${summary}`);
+      }
+      // El escenario ya falló: se conserva su error y se añade el de la limpieza.
+      testInfo.annotations.push({ type: 'cleanup-error', description: summary });
+    },
+    { timeout: ACCOUNT_CLEANUP_TIMEOUT_MS },
+  ],
 });
 
 export const { Given, When, Then } = createBdd(test);

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
@@ -42,10 +43,19 @@ const EnvSchema = z.object({
   ),
   AI_API_KEY: optionalText,
   AI_MODEL: optionalText,
+  TEST_RUN_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .regex(/^[A-Za-z0-9-]{1,40}$/, 'solo letras, dígitos y guiones (máximo 40)')
+      .optional(),
+  ),
 });
 
 export interface Env {
   readonly testEnv: TestEnvName;
+  /** Identificador de la ejecución; forma parte de la semilla de datos. */
+  readonly runId: string | undefined;
   readonly profile: ExecutionProfile;
   readonly baseURL: string;
   readonly ai: {
@@ -56,6 +66,18 @@ export interface Env {
 }
 
 const ENV_FILE = path.resolve(import.meta.dirname, '..', '..', '.env');
+
+/**
+ * Fija TEST_RUN_ID para toda la ejecución si no viene definido.
+ * Se llama una vez desde playwright.config.ts en el proceso principal; los workers
+ * heredan la variable de entorno, así que todos comparten el mismo identificador.
+ * Definir TEST_RUN_ID a mano reproduce los mismos datos sintéticos.
+ */
+export function ensureRunId(): void {
+  if (process.env.TEST_RUN_ID) return;
+  const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  process.env.TEST_RUN_ID = `${timestamp}-${randomBytes(3).toString('hex')}`;
+}
 
 /**
  * Carga `.env` (si existe) y valida las variables con Zod.
@@ -76,6 +98,7 @@ export function loadEnv(): Env {
 
   return {
     testEnv,
+    runId: vars.TEST_RUN_ID,
     profile: PROFILES[testEnv],
     baseURL: vars.BASE_URL,
     ai: { provider: vars.AI_PROVIDER, apiKey: vars.AI_API_KEY, model: vars.AI_MODEL },

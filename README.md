@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2) y arquitectura BDD + Screenplay (Fase 3), con una primera vertical funcional: el checkout de un usuario anónimo. Los demás escenarios de negocio, el ciclo de vida de cuentas y la integración de IA llegan en las fases siguientes.
+> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1). Los demás escenarios de negocio y la integración de IA llegan en las siguientes iteraciones y fases.
 
 ## Documentación
 
@@ -21,7 +21,8 @@ Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherk
 | TypeScript | 6.0 | Comprobación de tipos en modo estricto |
 | Playwright Test | 1.65.0 | Runner y navegador |
 | playwright-bdd | 9.2 | Gherkin ejecutable (`# language: es`) |
-| Zod | 4 | Validación de la configuración |
+| Zod | 4 | Validación de la configuración y de los datos sintéticos |
+| Faker | 10 | Datos sintéticos deterministas con semilla |
 | ESLint + typescript-eslint + eslint-plugin-playwright | 10 / 8 / 2 | Calidad de código |
 | Prettier | 3 | Formato |
 | Allure (allure-playwright + CLI 3) | 3 | Reporte de ejecución, sin Java |
@@ -52,6 +53,7 @@ cp .env.example .env              # PowerShell: Copy-Item .env.example .env
 | Variable | Valor por defecto | Descripción |
 |---|---|---|
 | `TEST_ENV` | `ci` si existe `CI`; si no, `local` | Perfil de ejecución: `local` o `ci` |
+| `TEST_RUN_ID` | uno nuevo por ejecución | Parte de la semilla de los datos sintéticos; fijarlo reproduce los mismos datos (salvo contraseñas) |
 | `BASE_URL` | `https://automationexercise.com` | URL de la aplicación bajo prueba |
 | `AI_PROVIDER` | `anthropic` | Único proveedor admitido |
 | `AI_API_KEY` | vacía | Sin ella, los escenarios `@ai` se omiten con el motivo "AI_API_KEY no configurada" |
@@ -103,18 +105,21 @@ Los tests de Playwright se generan a partir de los `.feature` al cargar `playwri
 
 ```
 features/            escenarios Gherkin (.feature)
-  checkout/          checkout de un usuario anónimo (proyecto functional)
+  auth/              registro y autenticación
+  checkout/          checkout de un usuario anónimo
   ai/                verificación provisional del proyecto ai
 steps/
   common/            step definitions de todos los proyectos
   ai/                step definitions que solo carga el proyecto ai
 src/
   config/            entorno validado con Zod y nombres de proyecto
-  fixtures/          test base: guards de red, Page Objects (app) y contexto de escenario
+  data/              generación de datos sintéticos (Faker con semilla + Zod)
+  fixtures/          test base: guards de red, Page Objects, contexto de escenario,
+                     sesiones adicionales, datos sintéticos y ciclo de vida de cuentas
   pages/             Page Objects y componentes
   tasks/             objetivos de negocio que coordinan acciones
   questions/         consultas que convierten el estado de la página en datos tipados
-  interactions/      operaciones de red: sincronización HTTP y guards
+  interactions/      operaciones transversales: sincronización HTTP, guards y campos secretos
   support/           global setup (limpieza de resultados de Allure)
 docs/                documentación del reto
 playwright.config.ts
@@ -127,6 +132,16 @@ La estructura completa prevista (Page Objects, Tasks, Questions, Interactions, d
 - **Playwright HTML Report:** `playwright-report/`, abierto con `npm run report`.
 - **Allure:** `allure-results/` se vacía al inicio de cada ejecución; `npm run report:allure` genera `allure-report/`.
 - **En fallos:** se conservan trace, captura de pantalla y video en `test-results/`.
+
+> **Artefactos sensibles.** Las trazas de un test fallido contienen contraseñas sintéticas (instantáneas del DOM, parámetros de llamadas y cuerpos HTTP), y se copian al reporte HTML y al de Allure. Trata `test-results/`, `playwright-report/`, `allure-results/` y `allure-report/` como locales: están ignorados por Git, se reemplazan en cada ejecución y no deben publicarse. Para borrarlos tras revisar un fallo:
+>
+> ```bash
+> rm -rf test-results playwright-report allure-results allure-report
+> # PowerShell: Remove-Item -Recurse -Force test-results, playwright-report, allure-results, allure-report -ErrorAction SilentlyContinue
+> ```
+>
+> Política completa en [docs/architecture.md](docs/architecture.md), sección 10.1.
+- **Por escenario:** inventario de cuentas creadas con su estado de limpieza, perfiles sintéticos con la contraseña censurada y resumen de los guards de red.
 
 ## Desafíos de IA
 

@@ -81,7 +81,8 @@ Característica: Registro y autenticación
     Entonces se muestra el formulario de información de la cuenta con el nombre y el correo rellenados
     Cuando el usuario completa los campos obligatorios de la cuenta y la dirección
     Entonces la cuenta queda creada
-    Y el usuario ha iniciado sesión con el nombre generado
+    Cuando el usuario continúa desde la confirmación
+    Entonces el usuario ha iniciado sesión con el nombre generado
 
   Escenario: La cuenta creada inicia sesión desde una sesión nueva
     Dado una cuenta sintética registrada
@@ -307,7 +308,7 @@ No hay escenarios negativos de formato de tarjeta. El cliente no valida el forma
 
 | Dato | Origen | Reglas |
 |---|---|---|
-| Perfil de registro (funcional) | Generador local, determinista con semilla derivada del ID de ejecución y del escenario; la semilla se adjunta al reporte | Esquema Zod; nombre y dirección ficticios; país entre los 7 admitidos |
+| Perfil de registro (funcional) | Generador local (Faker con semilla). Semilla = `TEST_RUN_ID` + `testId` + `retry` + `repeatEachIndex` + índice del dato; se adjunta al reporte. Determinista salvo la contraseña, que es aleatoria para no poder reconstruirla desde la semilla ([architecture.md](architecture.md), sección 6) | Esquema Zod; nombre y dirección ficticios; país entre los 7 admitidos; contraseña de al menos 12 caracteres con minúscula, mayúscula y dígito |
 | Perfil de registro (`@ai`) | Opción C, Anthropic | El mismo esquema Zod más las reglas de la sección 7 |
 | Correo | Siempre local | Único por cuenta, en el dominio reservado `example.com` |
 | Tarjeta | Siempre local, determinista con semilla | 16 dígitos que fallan Luhn, CVC y vencimiento sintéticos. Fallar Luhn reduce la probabilidad de coincidir con una tarjeta real, pero la protección efectiva es la interceptación del pago |
@@ -388,6 +389,8 @@ Fuera de la primera implementación (Opción A, opcional). Sus controles están 
 
 **La limpieza no es infalible.** Una caída de red, la interrupción del proceso o un cambio en la aplicación pueden dejar cuentas residuales. Son cuentas sintéticas en `example.com`, identificables en el inventario. No está verificado si al eliminar una cuenta se elimina también su carrito.
 
+Si una cuenta no puede eliminarse o verificarse, queda registrada como `cleanup_failed` con su último estado alcanzado (por ejemplo, `deleted` si solo falló la verificación), y **no se asume que su credencial quedó invalidada**. Ocurrió una vez en la Fase 4: la aplicación devolvió su página de sobrecarga durante la verificación; la eliminación sí constaba ("Account Deleted!") y el test falló de forma visible.
+
 El mecanismo de fixtures está descrito en [architecture.md](architecture.md), secciones 5 y 6.
 
 ## 9. Resiliencia
@@ -416,8 +419,9 @@ Las variantes solo cubren los cambios que definimos nosotros: no garantizan resi
 | Dependencia de Anthropic: disponibilidad, latencia, cuota y coste | Proyecto `ai` separado; timeouts; mocks en `functional`; omisión sin key |
 | Falsos positivos de la IA | Umbral, `inconclusive` cuenta como fallo, casos negativos e inyección de prompt obligatorios, aserciones deterministas en paralelo |
 | Un cambio de modelo altera el comportamiento de las aserciones | Modelo configurable con `AI_MODEL`; los casos negativos y de límite detectan que la aserción ha dejado de discriminar |
-| La aplicación es pública: cambios sin aviso, caídas o desafíos de Cloudflare con mucha carga | Workers limitados en `ci`; el comportamiento observado se usa como oráculo asumiendo este riesgo |
+| La aplicación es pública: cambios sin aviso, caídas o desafíos de Cloudflare con mucha carga. **Observado en la Fase 4:** `/login` devolvió una vez la página "This website is under heavy load (queue full)" en lugar del formulario | Workers limitados en `ci`; límites de espera por acción (15 s) y navegación (30 s) para fallar rápido y con un mensaje claro; el comportamiento observado se usa como oráculo asumiendo este riesgo |
 | Paralelismo: más cuentas implican más carga y más duración | Límite de workers en `ci` |
+| Las trazas de un test fallido contienen contraseñas sintéticas y se copian al reporte HTML y al de Allure | Trazas y reportes tratados como artefactos locales sensibles: ignorados por Git, reemplazados en cada ejecución, sin publicación automática; contraseñas aleatorias por cuenta y cuenta eliminada al terminar ([architecture.md](architecture.md), sección 10.1) |
 
 ## 11. Pendientes de verificación en la aplicación
 

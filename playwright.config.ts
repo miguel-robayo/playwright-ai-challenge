@@ -3,10 +3,12 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddProject } from 'playwright-bdd';
-import { loadEnv } from './src/config/env';
+import { ensureRunId, loadEnv } from './src/config/env';
 import { PROJECTS } from './src/config/projects';
+import { ACTION_TIMEOUT_MS, NAVIGATION_TIMEOUT_MS } from './src/config/timeouts';
 import { ALLURE_RESULTS_DIR } from './src/support/reset-allure-results';
 
+ensureRunId();
 const env = loadEnv();
 
 /** Opciones BDD comunes a todos los proyectos. */
@@ -51,6 +53,8 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL: env.baseURL,
     testIdAttribute: 'data-qa',
+    actionTimeout: ACTION_TIMEOUT_MS,
+    navigationTimeout: NAVIGATION_TIMEOUT_MS,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
