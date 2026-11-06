@@ -1,6 +1,8 @@
 import type { RegistrationProfile } from '../data/registration-profile';
 import type { App } from '../pages/app';
+import type { CartLine } from '../questions/cart.questions';
 import type { ListedProduct } from '../questions/products.questions';
+import type { AddToCartResult } from '../tasks/cart.tasks';
 
 /**
  * Datos que un escenario comparte entre sus pasos. Cada clave tiene un tipo fijo:
@@ -9,6 +11,12 @@ import type { ListedProduct } from '../questions/products.questions';
 export interface ScenarioMemory {
   /** Producto que la preparación del escenario añadió al carrito. */
   productInCart: ListedProduct;
+  /** Productos añadidos al carrito en el escenario, en orden, con la respuesta del servidor. */
+  addedProducts: readonly AddToCartResult[];
+  /** Producto tal como aparecía en el listado antes de abrir su detalle. */
+  listedProduct: ListedProduct;
+  /** Contenido del carrito al terminar la preparación, para comprobar su persistencia. */
+  cartSnapshot: readonly CartLine[];
   /** Perfil sintético del usuario del escenario. */
   profile: RegistrationProfile;
   /**

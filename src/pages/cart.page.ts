@@ -28,6 +28,10 @@ export class CartPage {
     await this.page.goto('/view_cart');
   }
 
+  async reload(): Promise<void> {
+    await this.page.reload();
+  }
+
   /** "Proceed To Checkout" es un <a> sin href: se localiza por su texto exacto. */
   async proceedToCheckout(): Promise<void> {
     await this.page.getByText('Proceed To Checkout', { exact: true }).click();

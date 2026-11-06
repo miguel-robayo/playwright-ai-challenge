@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { defineBddProject } from 'playwright-bdd';
 import { ensureRunId, loadEnv } from './src/config/env';
 import { PROJECTS } from './src/config/projects';
-import { ACTION_TIMEOUT_MS, NAVIGATION_TIMEOUT_MS } from './src/config/timeouts';
+import { ACTION_TIMEOUT_MS, NAVIGATION_TIMEOUT_MS, TEST_TIMEOUT_MS } from './src/config/timeouts';
 import { ALLURE_RESULTS_DIR } from './src/support/reset-allure-results';
 
 ensureRunId();
@@ -41,6 +41,7 @@ generateBddTests();
 export default defineConfig({
   outputDir: 'test-results',
   globalSetup: './src/support/reset-allure-results.ts',
+  timeout: TEST_TIMEOUT_MS,
   fullyParallel: true,
   forbidOnly: env.profile.forbidOnly,
   workers: env.profile.workers,
@@ -60,7 +61,15 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { ...functional, retries: env.profile.retries },
+    // Crea la cuenta y el storageState de los escenarios @shared-session; `cleanup` la elimina.
+    {
+      name: PROJECTS.setup,
+      testDir: 'src/setup',
+      testMatch: 'shared-session.setup.ts',
+      teardown: PROJECTS.cleanup,
+    },
+    { name: PROJECTS.cleanup, testDir: 'src/setup', testMatch: 'shared-session.teardown.ts' },
+    { ...functional, retries: env.profile.retries, dependencies: [PROJECTS.setup] },
     // Sin reintentos: la variabilidad del modelo debe quedar visible.
     { ...ai, retries: 0 },
   ],

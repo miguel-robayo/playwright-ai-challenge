@@ -8,7 +8,9 @@ import { z } from 'zod';
  * Solo cambian CÓMO se ejecuta la suite, nunca QUÉ proyectos existen.
  */
 const PROFILES = {
-  local: { workers: undefined, retries: 0, forbidOnly: false },
+  // 2 workers también en local: con más paralelismo la aplicación pública respondió 503
+  // y "queue full" (docs/test-strategy.md, riesgos).
+  local: { workers: 2, retries: 0, forbidOnly: false },
   ci: { workers: 2, retries: 1, forbidOnly: true },
 } as const satisfies Record<string, ExecutionProfile>;
 

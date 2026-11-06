@@ -6,3 +6,9 @@
  */
 export const ACTION_TIMEOUT_MS = 15_000;
 export const NAVIGATION_TIMEOUT_MS = 30_000;
+
+/**
+ * Timeout por test. Los escenarios E2E encadenan registro, varias navegaciones y un
+ * segundo contexto sobre una aplicación pública lenta; 30 s (valor por defecto) no basta.
+ */
+export const TEST_TIMEOUT_MS = 60_000;

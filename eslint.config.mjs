@@ -30,6 +30,15 @@ export default defineConfig(
     },
   },
   {
+    // Setup y teardown de la sesión compartida: son ciclo de vida, no escenarios de negocio.
+    // Necesitan ramas de recuperación y el teardown no tiene aserciones de negocio.
+    files: ['src/setup/**/*.ts'],
+    rules: {
+      'playwright/no-conditional-in-test': 'off',
+      'playwright/expect-expect': 'off',
+    },
+  },
+  {
     files: ['**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },

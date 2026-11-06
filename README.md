@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1). Los demás escenarios de negocio y la integración de IA llegan en las siguientes iteraciones y fases.
+> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2). Checkout autenticado, pago seguro, limpieza, resiliencia y la integración de IA llegan en las siguientes iteraciones y fases.
 
 ## Documentación
 
@@ -67,12 +67,13 @@ Son dos dimensiones independientes.
 
 | Proyecto (`--project`) | Qué ejecuta |
 |---|---|
+| `setup` / `cleanup` | Crean y eliminan la cuenta de la sesión compartida (`.auth/`) para los escenarios `@shared-session`. Se ejecutan solos como dependencia de `functional` |
 | `functional` | Todos los escenarios sin la etiqueta `@ai`. No usa Anthropic ni carga código de IA |
 | `ai` | Solo los escenarios `@ai`. Sin reintentos, para que la variabilidad del modelo sea visible |
 
 | Entorno (`TEST_ENV`) | Workers | Reintentos (`functional`) | `forbidOnly` |
 |---|---|---|---|
-| `local` | Por defecto de Playwright | 0 | No |
+| `local` | 2 | 0 | No |
 | `ci` | 2 | 1 | Sí |
 
 ```bash
@@ -120,6 +121,7 @@ src/
   tasks/             objetivos de negocio que coordinan acciones
   questions/         consultas que convierten el estado de la página en datos tipados
   interactions/      operaciones transversales: sincronización HTTP, guards y campos secretos
+  setup/             proyectos setup/cleanup de la sesión compartida
   support/           global setup (limpieza de resultados de Allure)
 docs/                documentación del reto
 playwright.config.ts

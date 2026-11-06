@@ -1,10 +1,10 @@
 import { expect } from '@playwright/test';
 import { Given, Then, When } from '../../src/fixtures/index';
 import { cartContents } from '../../src/questions/cart.questions';
-import { addFirstListedProductToCart } from '../../src/tasks/cart.tasks';
+import { addListedProductToCart } from '../../src/tasks/cart.tasks';
 
 Given('un usuario anónimo con un producto en el carrito', async ({ app, scenario }) => {
-  const product = await addFirstListedProductToCart(app);
+  const { product } = await addListedProductToCart(app, 0);
   scenario.remember('productInCart', product);
   await app.cart.open();
 

@@ -36,6 +36,14 @@ export class ProductsPage {
     return { id, name, price };
   }
 
+  /**
+   * "View Product" de un producto concreto. El enlace se repite en todas las tarjetas y
+   * está fuera de `.productinfo`; su `href` es la única asociación estable con el producto.
+   */
+  async openDetails(productId: string): Promise<void> {
+    await this.page.locator(`a[href="/product_details/${productId}"]`).click();
+  }
+
   /** "Add to cart" de un producto concreto. Es un <a> sin href, por eso se localiza por texto dentro de su tarjeta. */
   async addToCart(productId: string): Promise<void> {
     await this.card(productId).getByText('Add to cart', { exact: true }).click();

@@ -13,3 +13,9 @@ Característica: Registro y autenticación
     Dado una cuenta sintética registrada
     Cuando el usuario inicia sesión desde un contexto de navegador nuevo
     Entonces el usuario ha iniciado sesión con el nombre generado
+
+  @shared-session
+  Escenario: La sesión compartida se reutiliza sin iniciar sesión
+    Dado la sesión autenticada compartida
+    Cuando el usuario abre la página de inicio
+    Entonces el usuario está autenticado sin enviar el formulario de login

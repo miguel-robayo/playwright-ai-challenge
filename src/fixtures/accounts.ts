@@ -26,12 +26,15 @@ export interface AccountInventoryEntry {
   readonly email: string;
   readonly name: string;
   readonly state: AccountState;
+  /** Con `cleanup_failed`: último estado confirmado antes del fallo. */
+  readonly lastConfirmedState?: AccountState;
   readonly detail?: string;
 }
 
 interface TrackedAccount {
   readonly credentials: Credentials;
   state: AccountState;
+  lastConfirmedState?: AccountState;
   detail?: string;
 }
 
@@ -61,12 +64,15 @@ export class AccountLedger {
   }
 
   inventory(): AccountInventoryEntry[] {
-    return [...this.#accounts.values()].map(({ credentials, state, detail }) => ({
-      email: credentials.email,
-      name: credentials.name,
-      state,
-      ...(detail ? { detail } : {}),
-    }));
+    return [...this.#accounts.values()].map(
+      ({ credentials, state, lastConfirmedState, detail }) => ({
+        email: credentials.email,
+        name: credentials.name,
+        state,
+        ...(lastConfirmedState ? { lastConfirmedState } : {}),
+        ...(detail ? { detail } : {}),
+      }),
+    );
   }
 
   /**
@@ -82,6 +88,7 @@ export class AccountLedger {
       } catch (error) {
         const reached = account.state;
         account.state = 'cleanup_failed';
+        account.lastConfirmedState = reached;
         account.detail = `último estado: ${reached}; ${redact(errorMessage(error), account.credentials.password)}`;
       }
     }

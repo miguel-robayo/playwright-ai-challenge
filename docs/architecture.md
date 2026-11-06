@@ -17,7 +17,7 @@ Feature (.feature, Gherkin)
 | Feature | Comportamiento esperado en lenguaje de negocio, en español (`# language: es`) | Sin detalles técnicos: ni selectores, ni URLs internas, ni datos concretos |
 | Step Definitions | Traducen cada paso a llamadas a Tasks, Questions o, si la acción es atómica, directamente a un método de Page Object. Los pasos `Entonces` hacen las aserciones; un `Dado` solo comprueba que la preparación se cumplió | Sin localizadores ni lógica de negocio. Usan `page` solo para aserciones de navegación (`toHaveURL`) |
 | Tasks | Objetivos de negocio que coordinan varias acciones: añadir un producto al carrito, registrar una cuenta, rellenar el pago, eliminar la cuenta | No hacen aserciones; las únicas esperas son las necesarias para completar la acción. No existen Tasks que envuelvan una sola acción |
-| Questions | Derivan información del estado observable: convierten el texto de la página en datos tipados (filas del carrito, producto listado, precios) | No hacen aserciones. Si basta un localizador de un Page Object, no se crea Question (sería una capa que solo delega) |
+| Questions | Derivan información del estado observable: convierten el texto de la página en datos tipados (filas del carrito, producto listado, precios) | No hacen aserciones, no navegan ni modifican estado: leen la página en la que ya está la sesión. Si hace falta abrir otra página, lo hace antes una Task o el paso de forma explícita. Si basta un localizador de un Page Object, no se crea Question (sería una capa que solo delega) |
 | Interactions | Operaciones transversales que no pertenecen a una página: sincronización HTTP, guards de red y, más adelante, inyección de errores, variantes del DOM e interceptación del pago | Solo red y protocolo. Las acciones de interfaz son métodos de los Page Objects y no se duplican aquí |
 | Page Objects | Localizadores y acciones atómicas de una página o componente (listado, carrito, modal "Added!"). Exponen como propiedades de solo lectura los localizadores que los pasos necesitan comprobar | No conocen Gherkin, ni datos de negocio, ni otras páginas. No hacen aserciones; solo esperan estados para completar una acción |
 | Fixtures | Ciclo de vida: contextos con guards, cuentas, datos, cliente de IA, evidencias | Toda creación de recursos tiene su liberación |
@@ -77,13 +77,13 @@ Son dos dimensiones independientes.
 | `ai` | Solo escenarios `@ai`; usan Anthropic real | — |
 | `cleanup` | Elimina la cuenta de sesión compartida (teardown de `setup`) | — |
 
-En la foundation solo existen `functional` y `ai`. `setup` y `cleanup`, y la dependencia de `functional` respecto de `setup`, se añaden en la fase de fixtures y ciclo de vida.
+`setup` y `cleanup` son tests de Playwright normales (`src/setup/`), no escenarios BDD. `functional` depende de `setup`, y `cleanup` es su teardown: se ejecuta al terminar aunque fallen los escenarios. `ai` no depende de ellos.
 
 **Entornos (`TEST_ENV=local|ci`): cómo se ejecuta.**
 
 | Parámetro | `local` | `ci` |
 |---|---|---|
-| Workers | Por defecto de Playwright | Limitados (2), por tratarse de una aplicación pública protegida por Cloudflare |
+| Workers | 2 | 2 |
 | Reintentos en `functional` | 0 | 1. Cada intento crea y limpia su propia cuenta |
 | Reintentos en `ai` | 0 | 0, para que la variabilidad del modelo no quede oculta |
 | `forbidOnly` | No | Sí |
@@ -91,7 +91,7 @@ En la foundation solo existen `functional` y `ai`. `setup` y `cleanup`, y la dep
 
 Si `TEST_ENV` no está definido, se usa `ci` cuando existe la variable `CI` y `local` en otro caso.
 
-En ambos entornos, cada acción tiene un límite de 15 s y cada navegación de 30 s (`src/config/timeouts.ts`). Se aplican también a los contextos de `browserSessions`, que no heredan la configuración de `use`.
+En ambos entornos se limitan los workers a 2: con 4 en paralelo la aplicación pública respondió 503 y "queue full". Cada test tiene un límite de 60 s, cada acción de 15 s y cada navegación de 30 s (`src/config/timeouts.ts`). Se aplican también a los contextos de `browserSessions`, que no heredan la configuración de `use`.
 
 La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los parámetros de entorno) se carga de `.env`, con `process.loadEnvFile` de Node, y del entorno del proceso, que tiene prioridad. Se valida con Zod al arrancar. Una configuración inválida detiene la ejecución con un error claro. `AI_PROVIDER` solo admite `anthropic`.
 
@@ -105,7 +105,9 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 | Contextos adicionales (`browserSessions`) | Test | `BrowserSessions.open()`: contexto nuevo con los mismos guards de red instalados antes de navegar y su propia `App`. Lo usan el login desde otra sesión y la limpieza | Cierra todos sus contextos |
 | Datos sintéticos (`syntheticData`) | Test | Perfiles del generador local (sección 6). Adjunta al reporte la semilla y los perfiles con la contraseña censurada | — |
 | Cuentas (`accounts`) | Test | `AccountLedger`: registra el ciclo de vida de cada cuenta que crea el test | Elimina y verifica cada cuenta (sección 6); adjunta el inventario |
-| Sesión compartida | Proyecto `setup` | Cuenta y `storageState` para escenarios `@shared-session` | Proyecto `cleanup` |
+| Sesión compartida | Proyectos `setup` / `cleanup` | Cuenta, credenciales de recuperación y `storageState` en `.auth/` (sección 6) | El proyecto `cleanup` elimina y verifica la cuenta; borra `.auth/` solo si lo consigue |
+| `storageState` (sobrescrito) | Test | En escenarios `@shared-session`, la sesión de `.auth/shared-session.json`; en el resto, ninguna | — |
+| `sharedAccount` | Test | Nombre y correo de la cuenta compartida (nunca la contraseña) | — |
 | Cliente de IA | Test | Mock en `functional`; cliente de Anthropic real solo en `ai` | — |
 | Evidencias | Test | Registro de peticiones clave, interacciones de IA e inventario de cuentas | Adjunta todo al reporte |
 
@@ -113,7 +115,14 @@ La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los par
 
 - El carrito vive en el servidor y está ligado a la cuenta ([test-strategy.md](test-strategy.md), sección 2). Por eso todo escenario que modifica la cuenta, la sesión o el carrito registra su propia cuenta y la gestiona con el fixture `accounts`.
 - La sesión sobre la que actúan los pasos es la del test (`app`) salvo que un paso abra otra con `browserSessions` y la registre como `activeSession` en el contexto de escenario. No se sustituye `page` ni hay estado global.
-- Los escenarios `@shared-session` reutilizan el `storageState` del proyecto `setup` (R-09). Solo pueden leer: un guard aborta las rutas que modifican estado, `/add_to_cart`, `/delete_cart` y `/delete_account`, que son peticiones GET, y si se intenta alguna el escenario falla.
+- Los escenarios `@shared-session` reutilizan el `storageState` del proyecto `setup` (R-09). Solo pueden leer: un guard aborta las rutas que modifican estado, `/add_to_cart`, `/delete_cart` y `/delete_account`, que son peticiones GET, también en sus contextos adicionales. Si se intenta alguna, el test falla aunque sus aserciones hayan pasado.
+- **Ciclo de vida de la sesión compartida (`src/setup/`):**
+  1. `setup` se niega a empezar si ya hay una cuenta compartida pendiente de limpieza (nunca sobrescribe credenciales de recuperación).
+  2. Guarda las credenciales en `.auth/shared-account.json` **antes** de enviar el registro (`creation_attempted`) y las actualiza tras crearla (`created`).
+  3. Solo guarda `.auth/shared-session.json` después de confirmar "Logged in as {nombre}".
+  4. Si algo falla, intenta limpiar lo creado con el mismo `AccountLedger`, conserva las credenciales con el último estado confirmado y relanza el error original.
+  5. `cleanup` reconstruye el ledger desde ese estado, elimina y verifica la cuenta y adjunta el inventario. Solo borra `.auth/` si la cuenta queda `verified` (o `not_created`); si no, conserva los archivos con el último estado y falla indicando el correo.
+- `.auth/` está ignorado por Git y contiene una contraseña sintética: es un artefacto local sensible (sección 10.1). Con `--repeat-each` el proyecto `setup` también se repetiría; la comprobación del punto 1 lo detiene en lugar de perder una cuenta.
 - Las cuentas se crean y se eliminan **por la interfaz**, que es el mecanismo verificado durante el análisis. Las APIs `createAccount` y `deleteAccount` de la aplicación no se usan mientras no se verifiquen.
 - **Ciclo de vida (`AccountLedger`).** Estados: `creation_attempted` (se registra **antes** de enviar el segundo paso del registro), `created` (el servidor respondió 302 a `/account_created`), `deletion_attempted`, `deleted`, `verified` (un login posterior fue rechazado), `not_created` y `cleanup_failed`.
 - **Limpieza (teardown del fixture `accounts`, con semántica `finally`):**
@@ -138,7 +147,7 @@ Los instala el fixture automático `networkGuards` (`src/interactions/network-gu
 | Pago | Todo `POST` a `/payment` del origen de la aplicación se aborta (`blockedbyclient`), en todos los proyectos y escenarios. No se puede desactivar. Las peticiones abortadas quedan registradas (`paymentRequests`) para que el escenario de pago las inspeccione. Otros métodos a `/payment` (el `GET` de la página) siguen su curso | Restricción de seguridad del proyecto. Si en el futuro se necesita un pago simulado, se resolverá en local desde este guard (`route.fulfill`), de modo que la petición siga sin salir del navegador |
 | Anuncios | Se abortan las peticiones cuyo host es, o termina en, `googlesyndication.com`, `doubleclick.net`, `googleadservices.com`, `adtrafficquality.google` o `fundingchoicesmessages.google.com` | Los anuncios bloquean clics y cambian la URL a `#google_vignette`. Las redes publicitarias secundarias solo las cargan estos scripts, así que no necesitan regla propia |
 | Telemetría | Se abortan `cloudflareinsights.com` y, en el origen de la aplicación, las rutas que empiezan por `/cdn-cgi/rum` | Ruido en la red y en la consola |
-| Estado en sesión compartida | En `@shared-session` se abortan `/add_to_cart`, `/delete_cart` y `/delete_account` y el escenario falla. **Pendiente**: llega con la sesión compartida | Proteger la sesión compartida |
+| Estado en sesión compartida | En `@shared-session` (contexto del test y contextos adicionales) se abortan `/add_to_cart`, `/delete_cart` y `/delete_account`; el intento queda registrado y el test falla. Verificado con una prueba negativa | Proteger la sesión compartida |
 
 Las reglas comparan host y ruta exactos, no subcadenas, así que no pueden bloquear recursos de la aplicación. En la verificación de la Fase 3 solo se bloquearon `pagead2.googlesyndication.com` y `static.cloudflareinsights.com`, y ninguna petición a `automationexercise.com` falló. Cada test anota en el reporte cuántas peticiones se bloquearon, en qué hosts, y cuántos `POST /payment` se abortaron.
 

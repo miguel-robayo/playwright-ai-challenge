@@ -1,21 +1,39 @@
 import { expect } from '@playwright/test';
 import { Given, Then, When } from '../../src/fixtures/index';
-import {
-  completeAccountInformation,
-  logIn,
-  registerAccount,
-  startSignup,
-} from '../../src/tasks/account.tasks';
+import { completeAccountInformation, logIn, startSignup } from '../../src/tasks/account.tasks';
+import { registerIsolatedUser } from '../support/preconditions';
 
 Given('un perfil de usuario sintético único', ({ scenario, syntheticData }) => {
   scenario.remember('profile', syntheticData.registrationProfile());
 });
 
-Given('una cuenta sintética registrada', async ({ app, scenario, syntheticData, accounts }) => {
-  const profile = syntheticData.registrationProfile();
-  scenario.remember('profile', profile);
-  await registerAccount(app, profile, accounts);
+Given('una cuenta sintética registrada', ({ app, scenario, syntheticData, accounts }) =>
+  registerIsolatedUser({ app, scenario, syntheticData, accounts }),
+);
+
+Given(
+  'un usuario autenticado con una cuenta aislada',
+  ({ app, scenario, syntheticData, accounts }) =>
+    registerIsolatedUser({ app, scenario, syntheticData, accounts }),
+);
+
+Given('la sesión autenticada compartida', ({ sharedAccount }) => {
+  // Precondición: la sesión compartida existe y pertenece a una cuenta sintética.
+  expect(sharedAccount.email).toMatch(/@example\.com$/);
 });
+
+When('el usuario abre la página de inicio', async ({ app }) => {
+  await app.home.open();
+});
+
+Then(
+  'el usuario está autenticado sin enviar el formulario de login',
+  async ({ app, sharedAccount, networkGuards }) => {
+    await expect(app.header.loggedInAs).toHaveText(`Logged in as ${sharedAccount.name}`);
+    await expect(app.header.signupLoginLink).toBeHidden();
+    expect(networkGuards.requestCount('POST', '/login')).toBe(0);
+  },
+);
 
 When('el usuario inicia el registro con nombre y correo', async ({ app, scenario }) => {
   await startSignup(app, scenario.recall('profile'));

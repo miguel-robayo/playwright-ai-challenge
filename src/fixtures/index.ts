@@ -1,8 +1,10 @@
+import type { TestInfo } from '@playwright/test';
 import { createBdd, test as base } from 'playwright-bdd';
 import { loadEnv } from '../config/env';
 import { PROJECTS } from '../config/projects';
-import { NetworkGuards } from '../interactions/network-guards';
+import { type AppRequest, NetworkGuards } from '../interactions/network-guards';
 import { App } from '../pages/app';
+import { readSharedAccount, SHARED_SESSION_STATE } from '../setup/shared-session';
 import { AccountLedger } from './accounts';
 import { BrowserSessions } from './browser-sessions';
 import { ScenarioContext } from './scenario-context';
@@ -25,6 +27,27 @@ interface FrameworkFixtures {
   syntheticData: SyntheticData;
   /** Ciclo de vida de las cuentas creadas por el test: se eliminan y verifican al terminar. */
   accounts: AccountLedger;
+  /** Nombre y correo de la cuenta compartida (`@shared-session`). Nunca la contraseña. */
+  sharedAccount: { readonly name: string; readonly email: string };
+}
+
+const SHARED_SESSION_TAG = '@shared-session';
+
+function isSharedSession(tags: readonly string[]): boolean {
+  return tags.includes(SHARED_SESSION_TAG);
+}
+
+/**
+ * En un escenario de solo lectura, cualquier operación de estado bloqueada hace fallar
+ * el test. Si el test ya falló, se anota sin sustituir su error original.
+ */
+function failOnBlockedStateChanges(blocked: readonly AppRequest[], testInfo: TestInfo): void {
+  if (blocked.length === 0) return;
+  const summary = blocked.map((request) => `${request.method} ${request.path}`).join(', ');
+  if (testInfo.status === testInfo.expectedStatus) {
+    throw new Error(`Operación de estado bloqueada en un escenario de solo lectura: ${summary}`);
+  }
+  testInfo.annotations.push({ type: 'blocked-state-change', description: summary });
 }
 
 /** Margen propio de la limpieza de cuentas: login, eliminación y verificación por cuenta. */
@@ -49,15 +72,23 @@ export const test = base.extend<FrameworkFixtures>({
 
   // Automático: ningún escenario puede navegar sin los guards, aunque no los pida.
   // Las rutas del contexto también aplican a páginas ya creadas.
+  // La sesión compartida solo se carga en los escenarios @shared-session.
+  storageState: async ({ storageState }, use, testInfo) => {
+    await use(isSharedSession(testInfo.tags) ? SHARED_SESSION_STATE : storageState);
+  },
+
   networkGuards: [
     async ({ context, baseURL }, use, testInfo) => {
       if (!baseURL) throw new Error('baseURL no configurada');
-      const guards = await NetworkGuards.install(context, baseURL);
+      const guards = await NetworkGuards.install(context, baseURL, {
+        readOnly: isSharedSession(testInfo.tags),
+      });
       await use(guards);
       testInfo.annotations.push({
         type: 'network-guards',
-        description: `anuncios/telemetría bloqueados: ${String(guards.blockedRequests)} (${guards.blockedHosts.join(', ') || 'ninguno'}); POST /payment abortados: ${String(guards.paymentRequests.length)}`,
+        description: `anuncios/telemetría bloqueados: ${String(guards.blockedRequests)} (${guards.blockedHosts.join(', ') || 'ninguno'}); POST /payment abortados: ${String(guards.paymentRequests.length)}; operaciones de estado bloqueadas: ${String(guards.blockedStateChanges.length)}`,
       });
+      failOnBlockedStateChanges(guards.blockedStateChanges, testInfo);
     },
     { auto: true },
   ],
@@ -71,11 +102,21 @@ export const test = base.extend<FrameworkFixtures>({
     await use(new ScenarioContext());
   },
 
-  browserSessions: async ({ browser, baseURL }, use) => {
+  browserSessions: async ({ browser, baseURL }, use, testInfo) => {
     if (!baseURL) throw new Error('baseURL no configurada');
-    const sessions = new BrowserSessions(browser, baseURL);
+    const sessions = new BrowserSessions(browser, baseURL, {
+      readOnly: isSharedSession(testInfo.tags),
+    });
     await use(sessions);
     await sessions.closeAll();
+    failOnBlockedStateChanges(sessions.blockedStateChanges(), testInfo);
+  },
+
+  // Playwright exige desestructurar el primer argumento del fixture aunque no se use.
+  sharedAccount: async ({}, use) => {
+    const record = readSharedAccount();
+    if (!record) throw new Error('No hay sesión compartida: el proyecto setup no la creó');
+    await use({ name: record.name, email: record.email });
   },
 
   syntheticData: async ({}, use, testInfo) => {

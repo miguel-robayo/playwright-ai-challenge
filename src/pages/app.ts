@@ -4,6 +4,8 @@ import { AccountInformationPage } from './account-information.page';
 import { CartPage } from './cart.page';
 import { ProductAddedModal } from './components/product-added-modal';
 import { SiteHeader } from './components/site-header';
+import { HomePage } from './home.page';
+import { ProductDetailPage } from './product-detail.page';
 import { ProductsPage } from './products.page';
 import { SignupLoginPage } from './signup-login.page';
 
@@ -17,12 +19,16 @@ export class App {
   readonly signupLogin: SignupLoginPage;
   readonly accountInformation: AccountInformationPage;
   readonly accountConfirmation: AccountConfirmationPage;
+  readonly home: HomePage;
   readonly products: ProductsPage;
+  readonly productDetail: ProductDetailPage;
   readonly productAddedModal: ProductAddedModal;
   readonly cart: CartPage;
 
   constructor(readonly page: Page) {
     this.header = new SiteHeader(page);
+    this.home = new HomePage(page);
+    this.productDetail = new ProductDetailPage(page);
     this.signupLogin = new SignupLoginPage(page);
     this.accountInformation = new AccountInformationPage(page);
     this.accountConfirmation = new AccountConfirmationPage(page);
