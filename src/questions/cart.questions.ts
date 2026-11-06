@@ -1,4 +1,5 @@
 import type { App } from '../pages/app';
+import type { CartLineText } from '../pages/components/cart-line';
 import { parsePrice } from './price';
 
 export interface CartLine {
@@ -11,15 +12,25 @@ export interface CartLine {
 }
 
 /**
- * ¿Qué contiene el carrito en este momento? Devuelve un valor, no un Locator:
- * úsese con `expect.poll` para conservar el reintento automático de Playwright.
+ * ¿Qué contiene el carrito en este momento? Requiere estar en `/view_cart`.
+ * Devuelve un valor, no un Locator: úsese con `expect.poll` para conservar el
+ * reintento automático de Playwright.
  */
 export async function cartContents(app: App): Promise<CartLine[]> {
-  const lines = await app.cart.readLines();
-  return lines.map((line) => ({
+  return (await app.cart.readLines()).map(toCartLine);
+}
+
+/** Interpreta el texto de una fila de producto (carrito o resumen del checkout). */
+export function toCartLine(line: CartLineText): CartLine {
+  return {
     name: line.name.trim(),
     price: parsePrice(line.price),
     quantity: Number(line.quantity.trim()),
     total: parsePrice(line.total),
-  }));
+  };
+}
+
+/** Ordena filas por nombre para comparar contenidos sin depender del orden de la tabla. */
+export function sortLinesByName(lines: readonly CartLine[]): CartLine[] {
+  return [...lines].sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { AccountConfirmationPage } from './account-confirmation.page';
 import { AccountInformationPage } from './account-information.page';
 import { CartPage } from './cart.page';
+import { CheckoutPage } from './checkout.page';
 import { ProductAddedModal } from './components/product-added-modal';
 import { SiteHeader } from './components/site-header';
 import { HomePage } from './home.page';
@@ -24,6 +25,7 @@ export class App {
   readonly productDetail: ProductDetailPage;
   readonly productAddedModal: ProductAddedModal;
   readonly cart: CartPage;
+  readonly checkout: CheckoutPage;
 
   constructor(readonly page: Page) {
     this.header = new SiteHeader(page);
@@ -35,5 +37,6 @@ export class App {
     this.products = new ProductsPage(page);
     this.productAddedModal = new ProductAddedModal(page);
     this.cart = new CartPage(page);
+    this.checkout = new CheckoutPage(page);
   }
 }

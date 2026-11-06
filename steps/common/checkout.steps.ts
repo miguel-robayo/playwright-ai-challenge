@@ -1,6 +1,13 @@
 import { expect } from '@playwright/test';
 import { Given, Then, When } from '../../src/fixtures/index';
-import { cartContents } from '../../src/questions/cart.questions';
+import type { RegistrationProfile } from '../../src/data/registration-profile';
+import { cartContents, sortLinesByName } from '../../src/questions/cart.questions';
+import {
+  type CheckoutAddress,
+  checkoutAddresses,
+  checkoutSummary,
+  normalize,
+} from '../../src/questions/checkout.questions';
 import { addListedProductToCart } from '../../src/tasks/cart.tasks';
 
 Given('un usuario anónimo con un producto en el carrito', async ({ app, scenario }) => {
@@ -31,5 +38,41 @@ Then(
 
     await expect(page).toHaveURL(/\/view_cart$/);
     await expect(app.cart.line(scenario.recall('productInCart').name)).toBeVisible();
+  },
+);
+
+/** Dirección que el checkout debe mostrar para un perfil registrado (formato observado en la Fase 1.3). */
+function expectedAddress(profile: RegistrationProfile): CheckoutAddress {
+  return {
+    fullName: normalize(`${profile.title}. ${profile.firstName} ${profile.lastName}`),
+    company: normalize(profile.company),
+    address1: normalize(profile.address1),
+    address2: normalize(profile.address2),
+    cityStateZip: normalize(`${profile.city} ${profile.state} ${profile.zipcode}`),
+    country: profile.country,
+    phone: profile.mobileNumber,
+  };
+}
+
+Then(
+  'las direcciones de entrega y facturación coinciden con los datos del registro',
+  async ({ app, page, scenario }) => {
+    await expect(page).toHaveURL(/\/checkout$/);
+    const expected = expectedAddress(scenario.recall('profile'));
+    await expect
+      .poll(() => checkoutAddresses(app))
+      .toEqual({ delivery: expected, billing: expected });
+  },
+);
+
+Then(
+  'el importe total es la suma de los totales de las filas del carrito',
+  async ({ app, scenario }) => {
+    // Las filas del checkout son las del carrito que comprobó la precondición.
+    await expect
+      .poll(async () => sortLinesByName((await checkoutSummary(app)).lines))
+      .toEqual(scenario.recall('cartSnapshot'));
+    const { lines, totalAmount } = await checkoutSummary(app);
+    expect(totalAmount).toBe(lines.reduce((sum, line) => sum + line.total, 0));
   },
 );

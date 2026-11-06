@@ -1,12 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-
-/** Texto de una fila del carrito tal como lo muestra la página, sin interpretar. */
-export interface CartLineText {
-  readonly name: string;
-  readonly price: string;
-  readonly quantity: string;
-  readonly total: string;
-}
+import { type CartLineText, readCartLines } from './components/cart-line';
 
 /** Carrito: `/view_cart`. */
 export class CartPage {
@@ -46,17 +39,6 @@ export class CartPage {
 
   /** Lee las filas visibles en este momento. Devuelve [] si el carrito está vacío. */
   async readLines(): Promise<CartLineText[]> {
-    const rows = await this.lines.all();
-    return Promise.all(
-      rows.map(async (row) => {
-        const [name, price, quantity, total] = await Promise.all([
-          row.locator('.cart_description h4').innerText(),
-          row.locator('.cart_price').innerText(),
-          row.locator('.cart_quantity').innerText(),
-          row.locator('.cart_total_price').innerText(),
-        ]);
-        return { name, price, quantity, total };
-      }),
-    );
+    return readCartLines(this.lines);
   }
 }

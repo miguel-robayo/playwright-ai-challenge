@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { Given, Then, When } from '../../src/fixtures/index';
-import { type CartLine, cartContents } from '../../src/questions/cart.questions';
+import { type CartLine, cartContents, sortLinesByName } from '../../src/questions/cart.questions';
 import { productDetails } from '../../src/questions/products.questions';
 import { logIn } from '../../src/tasks/account.tasks';
 import {
@@ -24,16 +24,12 @@ function expectedCartLines(added: readonly AddToCartResult[]): CartLine[] {
       total: product.price * total,
     });
   }
-  return sortByName([...lines.values()]);
-}
-
-function sortByName(lines: readonly CartLine[]): CartLine[] {
-  return [...lines].sort((a, b) => a.name.localeCompare(b.name));
+  return sortLinesByName([...lines.values()]);
 }
 
 /** Contenido del carrito ordenado por nombre. Requiere estar en `/view_cart`. */
 async function sortedCart(session: App): Promise<CartLine[]> {
-  return sortByName(await cartContents(session));
+  return sortLinesByName(await cartContents(session));
 }
 
 // --- Detalle de producto ---
