@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2) y checkout autenticado y anónimo (Iteración 3). Pago seguro, limpieza, resiliencia y la integración de IA llegan en las siguientes iteraciones y fases.
+> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2) y checkout autenticado y anónimo (Iteración 3) y pago seguro con el POST /payment interceptado y abortado (Iteración 4). Limpieza, resiliencia y la integración de IA llegan en las siguientes iteraciones y fases.
 
 ## Documentación
 
@@ -108,6 +108,7 @@ Los tests de Playwright se generan a partir de los `.feature` al cargar `playwri
 features/            escenarios Gherkin (.feature)
   auth/              registro y autenticación
   products/          productos y carrito
+  payment/           pago seguro: validación de campos e interceptación del POST /payment
   checkout/          checkout autenticado (direcciones y total) y anónimo
   ai/                verificación provisional del proyecto ai
 steps/

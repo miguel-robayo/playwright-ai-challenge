@@ -12,7 +12,10 @@ export class CheckoutPage {
   /** Importe de la fila "Total Amount", que no tiene id ni `data-qa`. */
   private readonly totalAmount: Locator;
 
+  private readonly placeOrderLink: Locator;
+
   constructor(page: Page) {
+    this.placeOrderLink = page.getByRole('link', { name: 'Place Order' });
     const addressList = (heading: string) =>
       page.getByRole('list').filter({ has: page.getByRole('heading', { name: heading }) });
     this.deliveryAddress = addressList('Your delivery address');
@@ -21,6 +24,11 @@ export class CheckoutPage {
     const summaryRows = page.locator('#cart_info tbody tr');
     this.productRows = summaryRows.filter({ has: page.locator('.cart_description') });
     this.totalAmount = summaryRows.filter({ hasText: 'Total Amount' }).locator('.cart_total_price');
+  }
+
+  /** "Place Order" es un enlace a `/payment` (un GET: el guard de pago no lo afecta). */
+  async placeOrder(): Promise<void> {
+    await this.placeOrderLink.click();
   }
 
   /** Líneas de una dirección en el orden en que se muestran (la primera es el encabezado). */

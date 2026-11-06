@@ -4,6 +4,7 @@ import { loadEnv } from '../config/env';
 import { PROJECTS } from '../config/projects';
 import { type AppRequest, NetworkGuards } from '../interactions/network-guards';
 import { App } from '../pages/app';
+import { interceptedPayments } from '../questions/payment.questions';
 import { readSharedAccount, SHARED_SESSION_STATE } from '../setup/shared-session';
 import { AccountLedger } from './accounts';
 import { BrowserSessions } from './browser-sessions';
@@ -88,6 +89,17 @@ export const test = base.extend<FrameworkFixtures>({
         type: 'network-guards',
         description: `anuncios/telemetría bloqueados: ${String(guards.blockedRequests)} (${guards.blockedHosts.join(', ') || 'ninguno'}); POST /payment abortados: ${String(guards.paymentRequests.length)}; operaciones de estado bloqueadas: ${String(guards.blockedStateChanges.length)}`,
       });
+      if (guards.paymentRequests.length > 0) {
+        // Representación saneada: campos y presencia del CSRF, nunca su valor ni el cuerpo original.
+        await testInfo.attach('pago-interceptado.json', {
+          body: JSON.stringify(
+            { requests: interceptedPayments(guards), paymentResponses: guards.paymentResponses },
+            null,
+            2,
+          ),
+          contentType: 'application/json',
+        });
+      }
       failOnBlockedStateChanges(guards.blockedStateChanges, testInfo);
     },
     { auto: true },

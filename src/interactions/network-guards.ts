@@ -28,10 +28,18 @@ export const PAYMENT_PATH = '/payment';
  */
 export const STATE_CHANGING_PATHS = [/^\/add_to_cart\//, /^\/delete_cart\//, /^\/delete_account$/];
 
+/**
+ * POST /payment interceptado. Contiene el cuerpo original (incluido el token CSRF):
+ * nunca debe adjuntarse ni imprimirse tal cual; úsese la Question `interceptedPayment`,
+ * que lo sanea.
+ */
 export interface InterceptedPaymentRequest {
   readonly method: string;
   readonly url: string;
+  readonly contentType: string | undefined;
   readonly postData: string | null;
+  /** Error con el que terminó la petición (`requestfailed`); undefined si aún no terminó. */
+  readonly failure: string | undefined;
 }
 
 /** Petición a la aplicación: solo método y ruta, nunca cuerpos ni cabeceras. */
@@ -55,7 +63,11 @@ export interface GuardOptions {
  *   del navegador.
  */
 export class NetworkGuards {
-  readonly #paymentRequests: InterceptedPaymentRequest[] = [];
+  readonly #paymentRequests = new Map<
+    Request,
+    { record: Omit<InterceptedPaymentRequest, 'failure'>; failure?: string }
+  >();
+  #paymentResponses = 0;
   readonly #blockedStateChanges: AppRequest[] = [];
   readonly #appRequests: AppRequest[] = [];
   readonly #blockedHosts = new Set<string>();
@@ -106,10 +118,24 @@ export class NetworkGuards {
           await route.fallback();
           return;
         }
-        guards.#paymentRequests.push(toRecord(request));
+        guards.#paymentRequests.set(request, { record: toRecord(request) });
         await route.abort('blockedbyclient');
       },
     );
+    context.on('requestfailed', (request) => {
+      const entry = guards.#paymentRequests.get(request);
+      if (entry) entry.failure = request.failure()?.errorText;
+    });
+    context.on('response', (response) => {
+      const url = new URL(response.url());
+      if (
+        response.request().method() === 'POST' &&
+        url.origin === guards.appOrigin &&
+        url.pathname === PAYMENT_PATH
+      ) {
+        guards.#paymentResponses++;
+      }
+    });
     return guards;
   }
 
@@ -125,7 +151,15 @@ export class NetworkGuards {
 
   /** POST a /payment interceptados y abortados, en orden de llegada. */
   get paymentRequests(): readonly InterceptedPaymentRequest[] {
-    return this.#paymentRequests;
+    return [...this.#paymentRequests.values()].map(({ record, failure }) => ({
+      ...record,
+      failure,
+    }));
+  }
+
+  /** Respuestas HTTP recibidas para POST /payment. Con el guard activo debe ser siempre 0. */
+  get paymentResponses(): number {
+    return this.#paymentResponses;
   }
 
   /** Operaciones de estado abortadas por estar en un contexto de solo lectura. */
@@ -153,6 +187,11 @@ function isNavigationOrApiCall(request: Request): boolean {
   return ['document', 'xhr', 'fetch'].includes(request.resourceType());
 }
 
-function toRecord(request: Request): InterceptedPaymentRequest {
-  return { method: request.method(), url: request.url(), postData: request.postData() };
+function toRecord(request: Request): Omit<InterceptedPaymentRequest, 'failure'> {
+  return {
+    method: request.method(),
+    url: request.url(),
+    contentType: request.headers()['content-type'],
+    postData: request.postData(),
+  };
 }

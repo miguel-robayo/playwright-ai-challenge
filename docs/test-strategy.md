@@ -300,6 +300,8 @@ Cada paso `Entonces` se apoya en una de estas evidencias: respuesta HTTP, navega
 | Campos vacíos | Los 5 campos tienen `validity.valueMissing`, `checkValidity()` es falso y no se emite ninguna petición de pago |
 | Interceptación | Se captura exactamente un `POST /payment`. Se comprueban el método, la URL, los cinco campos con los valores introducidos y la presencia del token CSRF (su valor no se registra). La petición se aborta, se registra el evento `requestfailed` y no hay respuesta |
 
+**Evidencia de la interceptación.** El guard registra la petición, el error con el que terminó (`net::ERR_BLOCKED_BY_CLIENT`) y cuántas respuestas de `/payment` llegaron (deben ser 0). El reporte recibe un adjunto saneado (`pago-interceptado.json`) sin el valor del token CSRF.
+
 **Qué no se afirma.** La interceptación demuestra únicamente que la petición se capturó, se inspeccionó y se abortó. No se verifica el estado del servidor ni la existencia o ausencia de pedidos: la petición nunca llegó a él.
 
 No hay escenarios negativos de formato de tarjeta. El cliente no valida el formato y la validación del servidor no puede observarse sin enviar el pago.

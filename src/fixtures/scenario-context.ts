@@ -2,6 +2,7 @@ import type { RegistrationProfile } from '../data/registration-profile';
 import type { App } from '../pages/app';
 import type { CartLine } from '../questions/cart.questions';
 import type { ListedProduct } from '../questions/products.questions';
+import type { PaymentCard } from '../data/payment-card';
 import type { AddToCartResult } from '../tasks/cart.tasks';
 
 /**
@@ -17,6 +18,8 @@ export interface ScenarioMemory {
   listedProduct: ListedProduct;
   /** Contenido del carrito al terminar la preparación, para comprobar su persistencia. */
   cartSnapshot: readonly CartLine[];
+  /** Tarjeta sintética enviada en el formulario de pago. */
+  paymentCard: PaymentCard;
   /** Perfil sintético del usuario del escenario. */
   profile: RegistrationProfile;
   /**

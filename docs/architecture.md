@@ -206,7 +206,9 @@ src/ai/
 
 - Instantáneas del DOM (valor de los campos de contraseña).
 - Parámetros de las llamadas (incluido el argumento de `fillSecret`).
-- Cuerpos de las peticiones HTTP (`POST /signup`, `POST /login`).
+- Cuerpos de las peticiones HTTP (`POST /signup`, `POST /login` y el `POST /payment` interceptado, que incluye el token CSRF de la página y los datos de la tarjeta sintética).
+
+**Token CSRF del pago.** El adjunto `pago-interceptado.json` es una representación saneada: incluye método, URL, `Content-Type`, los campos de la tarjeta, `csrfTokenPresent` (true/false) y el resultado del aborto, **nunca el valor del token ni el cuerpo original**. Las aserciones comparan esa misma representación, de modo que un error tampoco puede mostrar el token. Verificado en la Fase 4 capturando el token real de la página: 0 apariciones en consola, `allure-results`, reporte HTML y adjuntos, tanto en una ejecución correcta como en una fallida; solo aparece dentro de las trazas de la ejecución fallida.
 
 **Dónde aparecen.** Verificado con una contraseña centinela y un test fallido: la traza está en `test-results/` y se copia automáticamente a `playwright-report/data/` (reporte HTML) y a `allure-results/` (adjunto `application/vnd.allure.playwright-trace` de `allure-playwright`, sin opción para excluirlo); `npm run report:allure` la incluye en `allure-report/`. En archivos de texto plano, consola, títulos de pasos y adjuntos JSON hay 0 apariciones. Por tanto, **el reporte HTML y el reporte de Allure de una ejecución con fallos son tan sensibles como las trazas**.
 
