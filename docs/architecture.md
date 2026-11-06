@@ -27,13 +27,16 @@ Feature (.feature, Gherkin)
 
 ## 2. Estructura de directorios propuesta
 
-Se confirmará al crear el esqueleto en la Fase 2.
+Es la estructura objetivo. La foundation (Fase 2) creó `features/`, `steps/common`, `steps/ai`, `src/config`, `src/fixtures` y `src/support`; el resto de carpetas se crean en la fase que las necesita.
 
 ```
 features/              escenarios .feature por capacidad
-steps/                 step definitions
+steps/
+  common/              step definitions de todos los proyectos
+  ai/                  step definitions que solo carga el proyecto ai
 src/
-  config/              configuración de entorno validada con Zod
+  config/              configuración de entorno validada con Zod y nombres de proyecto
+  support/             global setup de la ejecución (limpieza de resultados de Allure)
   fixtures/            test.extend: contextos, guards, cuentas, datos, IA, evidencias
   pages/               Page Objects
   tasks/               acciones de negocio
@@ -47,10 +50,11 @@ playwright.config.ts
 
 ## 3. Playwright y playwright-bdd
 
-- `defineBddConfig` declara las rutas de features y steps. `playwright-bdd` genera los tests de Playwright a partir de los `.feature` (`bddgen`).
+- Cada proyecto se declara con `defineBddProject`, a partir de unas opciones comunes (rutas de features, idioma `es`, fallo en la generación si falta un paso). Cada proyecto define sus propios pasos y su expresión de etiquetas, y genera sus tests en `.features-gen/<proyecto>`. `playwright-bdd` genera los tests de Playwright a partir de los `.feature` (`bddgen`).
 - `createBdd(test)` recibe el `test` extendido con los fixtures propios, de modo que los step definitions usan los mismos fixtures que un test de Playwright.
 - Las etiquetas de Gherkin (`@ai`, `@mock`, `@shared-session`, `@security`…) se convierten en etiquetas de Playwright y se usan para filtrar proyectos y activar fixtures.
-- El paso de generación se integra en los scripts de npm. Así los comandos del enunciado (`npx playwright test`, `--ui`, `show-report`) siguen funcionando (Q-05).
+- `playwright.config.ts` ejecuta `bddgen` en el proceso principal antes de que Playwright busque los tests: no lo hace en los workers (`TEST_WORKER_INDEX`) ni durante el propio `bddgen` (`PLAYWRIGHT_BDD_GEN`). Así los comandos del enunciado (`npx playwright test`, `--ui`, `show-report`) funcionan sin un paso previo (Q-05). `npm run bddgen` queda disponible para generar sin ejecutar.
+- Los step definitions de `steps/ai` solo forman parte del proyecto `ai`. Se verificó en la foundation que los workers de `functional` no los importan.
 
 ## 4. Proyectos y entornos
 
@@ -65,17 +69,21 @@ Son dos dimensiones independientes.
 | `ai` | Solo escenarios `@ai`; usan Anthropic real | — |
 | `cleanup` | Elimina la cuenta de sesión compartida (teardown de `setup`) | — |
 
+En la foundation solo existen `functional` y `ai`. `setup` y `cleanup`, y la dependencia de `functional` respecto de `setup`, se añaden en la fase de fixtures y ciclo de vida.
+
 **Entornos (`TEST_ENV=local|ci`): cómo se ejecuta.**
 
 | Parámetro | `local` | `ci` |
 |---|---|---|
-| Workers | Por defecto | Limitados (2), por tratarse de una aplicación pública protegida por Cloudflare |
+| Workers | Por defecto de Playwright | Limitados (2), por tratarse de una aplicación pública protegida por Cloudflare |
 | Reintentos en `functional` | 0 | 1. Cada intento crea y limpia su propia cuenta |
 | Reintentos en `ai` | 0 | 0, para que la variabilidad del modelo no quede oculta |
 | `forbidOnly` | No | Sí |
 | Navegador | Sin interfaz gráfica (headless) por defecto; con ventana opcional | Sin interfaz gráfica (headless) |
 
-La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los parámetros de entorno) se carga del entorno y se valida con Zod al arrancar. Una configuración inválida detiene la ejecución con un error claro. `AI_PROVIDER` solo admite `anthropic`.
+Si `TEST_ENV` no está definido, se usa `ci` cuando existe la variable `CI` y `local` en otro caso.
+
+La configuración (`BASE_URL`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y los parámetros de entorno) se carga de `.env`, con `process.loadEnvFile` de Node, y del entorno del proceso, que tiene prioridad. Se valida con Zod al arrancar. Una configuración inválida detiene la ejecución con un error claro. `AI_PROVIDER` solo admite `anthropic`.
 
 ## 5. Fixtures y ciclo de vida
 
@@ -148,7 +156,7 @@ src/ai/
 ## 10. Reportes y evidencias
 
 - **Playwright:** `trace: 'retain-on-failure'`, `screenshot: 'only-on-failure'`, `video: 'retain-on-failure'`, reporte HTML.
-- **Allure:** los mismos artefactos y estos adjuntos:
+- **Allure:** `allure-playwright` escribe `allure-results`. Un global setup vacía ese directorio al inicio de cada ejecución, porque el reporter no lo limpia y el reporte mezclaría ejecuciones. El reporte se genera con el CLI de Allure 3, que es un paquete de npm y no requiere Java. Además de los artefactos de Playwright, incluirá estos adjuntos, que se implementan en las fases siguientes:
   - Peticiones clave: `POST /signup` de los dos pasos, `GET /add_to_cart`, `POST /login` y el `POST /payment` interceptado, con la marca de aborto.
   - Interacciones de IA: prompt, respuesta sin procesar, resultado validado, modelo y latencia.
   - Semilla y datos sintéticos de cada escenario.

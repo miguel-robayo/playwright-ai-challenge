@@ -1,0 +1,10 @@
+# Artefactos generados
+.features-gen/
+test-results/
+playwright-report/
+allure-results/
+allure-report/
+package-lock.json
+
+# La documentación se mantiene a mano (tablas y bloques Gherkin)
+*.md

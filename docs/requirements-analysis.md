@@ -45,9 +45,9 @@ Estado de cobertura: **Cubierto**, **Parcial** (con justificación en la secció
 | R-16 | Opción A: selectores auto-reparables | §3 | **Opcional**: fuera de la primera implementación |
 | R-17 | Opción B: `expectAI(actualText, expectedIntent)` | §3 | Cubierto |
 | R-18 | Opción C: utilidad de IA que genere datos válidos y no deterministas | §3 | Cubierto |
-| R-19 | Node.js 18 LTS o superior | §4 | Cubierto |
+| R-19 | Node.js 18 LTS o superior | §4 | Cubierto: el proyecto exige Node ≥ 22.18 (`.nvmrc` 22.23.2), que cumple el mínimo del enunciado. Lo imponen ESLint 10 y el CLI de Allure 3 |
 | R-20 | Gestor de paquetes npm, pnpm o yarn | §4 | Cubierto: npm |
-| R-21 | Comandos operativos: `npm install`, `npx playwright install --with-deps`, `npx playwright test`, `--ui`, `show-report` | §4 | Cubierto (ver Q-05) |
+| R-21 | Comandos operativos: `npm install`, `npx playwright install --with-deps`, `npx playwright test`, `--ui`, `show-report` | §4 | Cubierto: los comandos funcionan sin pasos previos (Q-05) |
 | R-22 | `.env.example` con `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` y `BASE_URL`, sin secretos | §4, Entregables | Cubierto |
 | R-23 | El proyecto se llama `playwright-ai-challenge` | §4 | Entregable |
 | R-24 | Repositorio público con historial de commits limpio | Entregables | Entregable |
@@ -119,8 +119,8 @@ Los escenarios están definidos en [test-strategy.md](test-strategy.md).
 | Q-02 | ¿Los "cambios deliberados en los selectores" los introduce el candidato o el evaluador? | Los simulamos nosotros con variantes del DOM |
 | Q-03 | ¿Se acepta contenido controlado para la Opción B, dado que la aplicación no tiene textos variables? | Se usa y se etiqueta como simulación |
 | Q-04 | ¿Qué significa "comandos por entorno"? | Entornos `local` y `ci` ([architecture.md](architecture.md)) |
-| Q-05 | `npx playwright test` debe funcionar directamente, pero `playwright-bdd` necesita generar antes los tests (`bddgen`) | Se resolverá en la Fase 2 para que los comandos de §4 sigan funcionando |
-| Q-06 | Los Entregables piden Allure; el CLI clásico de Allure necesita Java | Se elegirá en la Fase 2 la variante de Allure y se documentará su prerrequisito real |
+| Q-05 | `npx playwright test` debe funcionar directamente, pero `playwright-bdd` necesita generar antes los tests (`bddgen`) | Resuelta: `playwright.config.ts` ejecuta `bddgen` antes del descubrimiento de tests ([architecture.md](architecture.md), sección 3) |
+| Q-06 | Los Entregables piden Allure; el CLI clásico de Allure necesita Java | Resuelta: se usa el CLI de Allure 3, distribuido por npm, que no requiere Java. Su prerrequisito real es Node ≥ 22.18 |
 | Q-07 | El ejemplo de `.env` usa OpenAI, `gpt-4o-mini` y SauceDemo | Se adapta a Anthropic, un modelo Claude configurable y Automation Exercise |
 | Q-08 | No se documenta qué debe hacer la interfaz ante un error de red | Solo se verifica lo observable: la confirmación no aparece |
 | Q-09 | El enunciado no exige integración continua | Se considerará opcional en la Fase 2 |
