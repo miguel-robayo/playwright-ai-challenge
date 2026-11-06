@@ -1,0 +1,117 @@
+import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { z } from 'zod';
+
+/**
+ * Perfiles de ejecución seleccionados con TEST_ENV.
+ * Solo cambian CÓMO se ejecuta la suite, nunca QUÉ proyectos existen.
+ */
+const PROFILES = {
+  // 2 workers también en local: con más paralelismo la aplicación pública respondió 503
+  // y "queue full" (docs/test-strategy.md, riesgos).
+  local: { workers: 2, retries: 0, forbidOnly: false },
+  ci: { workers: 2, retries: 1, forbidOnly: true },
+} as const satisfies Record<string, ExecutionProfile>;
+
+interface ExecutionProfile {
+  /** `undefined` deja que Playwright use su valor por defecto. */
+  readonly workers: number | undefined;
+  readonly retries: number;
+  readonly forbidOnly: boolean;
+}
+
+export type TestEnvName = keyof typeof PROFILES;
+
+/** Una variable vacía en .env (`AI_API_KEY=`) equivale a no definida. */
+const optionalText = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().optional(),
+);
+
+const EnvSchema = z.object({
+  TEST_ENV: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['local', 'ci']).optional(),
+  ),
+  CI: optionalText,
+  BASE_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.url({ protocol: /^https?$/ }).default('https://automationexercise.com'),
+  ),
+  AI_PROVIDER: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.literal('anthropic').default('anthropic'),
+  ),
+  /** Clave de Anthropic. `AI_API_KEY` es el nombre que pide el enunciado y se acepta como alias. */
+  ANTHROPIC_API_KEY: optionalText,
+  AI_API_KEY: optionalText,
+  AI_MODEL: optionalText,
+  TEST_RUN_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .regex(/^[A-Za-z0-9-]{1,40}$/, 'solo letras, dígitos y guiones (máximo 40)')
+      .optional(),
+  ),
+});
+
+export interface Env {
+  readonly testEnv: TestEnvName;
+  /** Identificador de la ejecución; forma parte de la semilla de datos. */
+  readonly runId: string | undefined;
+  readonly profile: ExecutionProfile;
+  readonly baseURL: string;
+  readonly ai: {
+    readonly provider: 'anthropic';
+    readonly apiKey: string | undefined;
+    readonly model: string;
+  };
+}
+
+/** Modelo por defecto de los escenarios de IA; `AI_MODEL` lo sustituye. */
+export const DEFAULT_AI_MODEL = 'claude-opus-5-5';
+
+const ENV_FILE = path.resolve(import.meta.dirname, '..', '..', '.env');
+
+/**
+ * Fija TEST_RUN_ID para toda la ejecución si no viene definido.
+ * Se llama una vez desde playwright.config.ts en el proceso principal; los workers
+ * heredan la variable de entorno, así que todos comparten el mismo identificador.
+ * Definir TEST_RUN_ID a mano reproduce los mismos datos sintéticos.
+ */
+export function ensureRunId(): void {
+  if (process.env.TEST_RUN_ID) return;
+  const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  process.env.TEST_RUN_ID = `${timestamp}-${randomBytes(3).toString('hex')}`;
+}
+
+/**
+ * Carga `.env` (si existe) y valida las variables con Zod.
+ * Las variables ya definidas en el proceso tienen prioridad sobre el archivo, por lo que
+ * llamarla varias veces es seguro: no se guarda estado entre llamadas.
+ * Una configuración inválida detiene la ejecución con un mensaje claro.
+ */
+export function loadEnv(): Env {
+  if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+
+  const parsed = EnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    throw new Error(`Configuración de entorno inválida:\n${z.prettifyError(parsed.error)}`);
+  }
+
+  const vars = parsed.data;
+  const testEnv: TestEnvName = vars.TEST_ENV ?? (vars.CI ? 'ci' : 'local');
+
+  return {
+    testEnv,
+    runId: vars.TEST_RUN_ID,
+    profile: PROFILES[testEnv],
+    baseURL: vars.BASE_URL,
+    ai: {
+      provider: vars.AI_PROVIDER,
+      apiKey: vars.ANTHROPIC_API_KEY ?? vars.AI_API_KEY,
+      model: vars.AI_MODEL ?? DEFAULT_AI_MODEL,
+    },
+  };
+}

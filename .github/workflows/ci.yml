@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+
+# Solo lectura del repositorio: el workflow no publica nada.
+permissions:
+  contents: read
+
+# Una ejecución por rama a la vez: la aplicación bajo prueba es pública y se satura.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Perfil `ci` (2 workers, 1 reintento en functional, forbidOnly). También lo activa `CI`.
+  TEST_ENV: ci
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Solo indica si el secreto existe ('true'/'false'); la clave no se expone a los pasos
+      # funcionales: llega únicamente al paso de IA.
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # El token no queda guardado en .git/config durante el job.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validaciones estáticas (typecheck, lint, formato, descubrimiento de tests)
+        run: npm run validate
+
+      - name: Pruebas del cliente de IA con respuestas simuladas (sin red ni API key)
+        run: npm run test:ai-unit
+
+      # `!cancelled()`: las suites son independientes; un fallo de una no impide ejecutar la otra
+      # (el job sigue fallando si cualquiera falla).
+      - name: Suite funcional (sin API key; incluye setup/cleanup de la sesión compartida)
+        if: ${{ !cancelled() }}
+        run: npx playwright test --project=functional --reporter=list
+
+      # Solo con el secreto configurado. En pull requests desde forks GitHub no expone
+      # secretos, así que este paso se omite.
+      - name: Escenarios de IA contra Anthropic
+        if: ${{ !cancelled() && env.HAS_ANTHROPIC_KEY == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+        run: npx playwright test --project=ai --reporter=list
+
+    # Sin `upload-artifact` a propósito: las trazas, el reporte HTML y Allure de un fallo
+    # pueden contener contraseñas sintéticas y el token CSRF (docs/architecture.md, 10.1).
+    # Los fallos se diagnostican con el reportero `list` en el log del job.

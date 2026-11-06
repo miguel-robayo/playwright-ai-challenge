@@ -1,0 +1,17 @@
+node_modules/
+
+# Configuración local con posibles secretos
+.env
+
+# Tests generados por playwright-bdd
+.features-gen/
+
+# Resultados y reportes
+test-results/
+playwright-report/
+blob-report/
+allure-results/
+allure-report/
+
+# Estado de autenticación (fases siguientes)
+.auth/
