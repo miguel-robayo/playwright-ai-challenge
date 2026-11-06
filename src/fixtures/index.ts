@@ -3,6 +3,8 @@ import { createBdd, test as base } from 'playwright-bdd';
 import { loadEnv } from '../config/env';
 import { PROJECTS } from '../config/projects';
 import { type AppRequest, NetworkGuards } from '../interactions/network-guards';
+import { type AiClient, createAiClient } from '../ai/client';
+import { AI_TIMEOUT_MS } from '../config/timeouts';
 import { App } from '../pages/app';
 import { interceptedPayments } from '../questions/payment.questions';
 import { readSharedAccount, SHARED_SESSION_STATE } from '../setup/shared-session';
@@ -28,11 +30,16 @@ interface FrameworkFixtures {
   syntheticData: SyntheticData;
   /** Ciclo de vida de las cuentas creadas por el test: se eliminan y verifican al terminar. */
   accounts: AccountLedger;
+  /** Cliente de IA (Anthropic). Solo existe en el proyecto `ai` y con API key. */
+  ai: AiClient;
   /** Nombre y correo de la cuenta compartida (`@shared-session`). Nunca la contraseña. */
   sharedAccount: { readonly name: string; readonly email: string };
 }
 
 const SHARED_SESSION_TAG = '@shared-session';
+
+/** Máximo de llamadas a Anthropic por escenario: evita consumo descontrolado. */
+const AI_MAX_CALLS_PER_TEST = 4;
 
 function isSharedSession(tags: readonly string[]): boolean {
   return tags.includes(SHARED_SESSION_TAG);
@@ -64,7 +71,7 @@ export const test = base.extend<FrameworkFixtures>({
     async ({}, use, testInfo) => {
       testInfo.skip(
         testInfo.project.name === PROJECTS.ai && !env.ai.apiKey,
-        'AI_API_KEY no configurada',
+        'ANTHROPIC_API_KEY no configurada',
       );
       await use(undefined);
     },
@@ -122,6 +129,30 @@ export const test = base.extend<FrameworkFixtures>({
     await use(sessions);
     await sessions.closeAll();
     failOnBlockedStateChanges(sessions.blockedStateChanges(), testInfo);
+  },
+
+  // Playwright exige desestructurar el primer argumento del fixture aunque no se use.
+  ai: async ({}, use, testInfo) => {
+    // La suite funcional nunca puede llamar a Anthropic: fuera del proyecto `ai` el fixture falla.
+    if (testInfo.project.name !== PROJECTS.ai || !env.ai.apiKey) {
+      throw new Error(
+        'El cliente de IA solo está disponible en el proyecto ai con ANTHROPIC_API_KEY',
+      );
+    }
+    const client = await createAiClient({
+      apiKey: env.ai.apiKey,
+      model: env.ai.model,
+      timeoutMs: AI_TIMEOUT_MS,
+      maxCalls: AI_MAX_CALLS_PER_TEST,
+    });
+    await use(client);
+    if (client.calls.length > 0) {
+      // Operación, modelo, latencia, tokens y salida validada; nunca la API key.
+      await testInfo.attach('ia-interacciones.json', {
+        body: JSON.stringify(client.calls, null, 2),
+        contentType: 'application/json',
+      });
+    }
   },
 
   // Playwright exige desestructurar el primer argumento del fixture aunque no se use.

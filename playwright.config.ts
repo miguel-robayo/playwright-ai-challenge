@@ -72,6 +72,8 @@ export default defineConfig({
     { ...functional, retries: env.profile.retries, dependencies: [PROJECTS.setup] },
     // Sin reintentos: la variabilidad del modelo debe quedar visible.
     { ...ai, retries: 0 },
+    // Pruebas del cliente de IA con respuestas simuladas: sin red ni API key.
+    { name: PROJECTS.aiUnit, testDir: 'tests/ai-unit', retries: 0 },
   ],
 });
 

@@ -121,7 +121,8 @@ const PASSWORD_ALPHABET = {
   digit: '23456789',
 } as const;
 
-function generatePassword(length = 16): string {
+/** Contraseña aleatoria (criptográfica). Nunca se deriva de la semilla ni la propone un LLM. */
+export function generatePassword(length = 16): string {
   const pick = (chars: string) => chars.charAt(randomInt(chars.length));
   const all = PASSWORD_ALPHABET.lower + PASSWORD_ALPHABET.upper + PASSWORD_ALPHABET.digit;
   const required = [

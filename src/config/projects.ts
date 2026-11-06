@@ -4,6 +4,7 @@ export const PROJECTS = {
   cleanup: 'cleanup',
   functional: 'functional',
   ai: 'ai',
+  aiUnit: 'ai-unit',
 } as const;
 
 export type ProjectName = (typeof PROJECTS)[keyof typeof PROJECTS];

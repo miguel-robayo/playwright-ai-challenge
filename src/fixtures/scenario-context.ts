@@ -20,6 +20,8 @@ export interface ScenarioMemory {
   cartSnapshot: readonly CartLine[];
   /** Error capturado al usar un localizador sobre una variante del DOM (pruebas de resiliencia). */
   locatorError: Error;
+  /** Error con el que se rechazó una propuesta de la IA (escenarios negativos de datos). */
+  aiRejection: Error;
   /** Tarjeta sintética enviada en el formulario de pago. */
   paymentCard: PaymentCard;
   /** Perfil sintético del usuario del escenario. */

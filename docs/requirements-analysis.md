@@ -100,13 +100,13 @@ Los escenarios están definidos en [test-strategy.md](test-strategy.md).
 |---|---|---|
 | R-01, R-02 | Registrar una cuenta sintética en dos pasos · La cuenta creada inicia sesión desde una sesión nueva · El detalle del producto coincide con el listado · Añadir productos y verificar los totales por fila · Añadir de nuevo el mismo producto incrementa su cantidad · El carrito persiste en la cuenta · El checkout muestra las direcciones del registro y el total · Se pide a un usuario anónimo que se registre o inicie sesión · Los campos de pago vacíos bloquean el envío · La petición de pago se captura, se inspecciona y se aborta · La cuenta se elimina y ya no puede iniciar sesión | Respuestas HTTP, navegación, elementos visibles y petición de pago interceptada |
 | R-03 | Los localizadores toleran cambios cosméticos del DOM · Los localizadores fallan de forma explícita cuando se elimina su contrato | Variante aplicada y resultado esperado (éxito o `TimeoutError`) |
-| R-04, R-17 | Una redacción equivalente cumple la intención esperada · Una redacción contraria, neutra o manipuladora no cumple la intención esperada · Registrarse con un perfil generado por IA | Veredicto estructurado, umbral y adjuntos de la interacción |
+| R-04, R-17 | El aviso de checkout cumple la intención esperada · El aviso de checkout no cumple una intención contraria | Veredicto `{ passed, reason }` validado con Zod y adjunto de la interacción |
 | R-05 | Registrar una cuenta sintética en dos pasos · La petición de pago se captura, se inspecciona y se aborta | Semilla y datos generados adjuntos; validación Zod |
 | R-07 | Todos (fixtures de cuenta, guards, datos, IA y evidencias) | Uso de los fixtures en los step definitions |
 | R-08 | Una petición fallida de añadir al carrito no muestra confirmación · La petición de pago se captura, se inspecciona y se aborta · Resiliencia de localizadores · Aserciones semánticas | Respuesta simulada, petición capturada o abortada y variantes servidas |
 | R-09 | La sesión compartida se reutiliza sin iniciar sesión · El detalle del producto coincide con el listado | Ningún login por interfaz en esos escenarios |
 | R-10 a R-13 | Configuración de Playwright | Trace, captura y video en fallos; reporte HTML |
-| R-14, R-15, R-18 | El perfil generado es válido para el registro · Registrarse con un perfil generado por IA · Los errores del proveedor nunca producen una aserción semántica superada · Los perfiles generados inválidos se rechazan | Respuesta validada con Zod, uso real en la aplicación y fallos explícitos con mocks |
+| R-14, R-15, R-18 | Registrarse con un perfil generado por IA · Un perfil de IA para un país no admitido se rechaza · pruebas `ai-unit` con respuestas simuladas | Propuesta validada con Zod y reglas de negocio, registro real y fallos explícitos ante errores del proveedor |
 | R-19 a R-22 | Configuración y `.env.example` | Ejecución desde un clon limpio; configuración validada con Zod |
 | R-23, R-24, R-26 | — | Revisión del entregable |
 | R-25 | Todos | Adjuntos de Allure: peticiones clave e interacciones de IA |

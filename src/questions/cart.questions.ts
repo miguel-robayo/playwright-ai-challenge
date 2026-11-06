@@ -30,6 +30,11 @@ export function toCartLine(line: CartLineText): CartLine {
   };
 }
 
+/** ¿Qué dice el aviso de checkout para usuarios anónimos? Requiere que esté visible. */
+export async function checkoutPromptText(app: App): Promise<string> {
+  return (await app.cart.checkoutPrompt.root.innerText()).trim();
+}
+
 /** Ordena filas por nombre para comparar contenidos sin depender del orden de la tabla. */
 export function sortLinesByName(lines: readonly CartLine[]): CartLine[] {
   return [...lines].sort((a, b) => a.name.localeCompare(b.name));

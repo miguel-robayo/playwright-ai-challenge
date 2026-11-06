@@ -4,13 +4,14 @@ import {
   redactProfile,
   type RegistrationProfile,
 } from '../data/registration-profile';
-import { seedKey, type SeedParts } from '../data/seed';
+import { seedDigest, seedKey, type SeedParts } from '../data/seed';
 
 /** Registro de un dato generado, apto para el reporte (sin contraseñas). */
 export interface GeneratedDataRecord {
   readonly seed: string;
-  readonly kind: 'registration-profile' | 'payment-card';
-  readonly value: ReturnType<typeof redactProfile> | PaymentCard;
+  readonly kind:
+    'registration-profile' | 'payment-card' | 'reserved-email' | 'ai-registration-profile';
+  readonly value: ReturnType<typeof redactProfile> | PaymentCard | string;
 }
 
 /**
@@ -39,6 +40,23 @@ export class SyntheticData {
     const card = generatePaymentCard(seed, nameOnCard);
     this.#generated.push({ seed: seedKey(seed), kind: 'payment-card', value: card });
     return card;
+  }
+
+  /** Correo único y determinista (semilla del test) en example.com, para datos que propone la IA. */
+  reserveEmail(prefix: string): string {
+    const seed = this.#nextSeed();
+    const email = `${prefix}.${seedDigest(seed)}@example.com`;
+    this.#generated.push({ seed: seedKey(seed), kind: 'reserved-email', value: email });
+    return email;
+  }
+
+  /** Registra un perfil propuesto por la IA y ya validado, con la contraseña censurada. */
+  recordAiProfile(profile: RegistrationProfile): void {
+    this.#generated.push({
+      seed: 'ia',
+      kind: 'ai-registration-profile',
+      value: redactProfile(profile),
+    });
   }
 
   get generated(): readonly GeneratedDataRecord[] {

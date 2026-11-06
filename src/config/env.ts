@@ -43,6 +43,8 @@ const EnvSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.literal('anthropic').default('anthropic'),
   ),
+  /** Clave de Anthropic. `AI_API_KEY` es el nombre que pide el enunciado y se acepta como alias. */
+  ANTHROPIC_API_KEY: optionalText,
   AI_API_KEY: optionalText,
   AI_MODEL: optionalText,
   TEST_RUN_ID: z.preprocess(
@@ -63,9 +65,12 @@ export interface Env {
   readonly ai: {
     readonly provider: 'anthropic';
     readonly apiKey: string | undefined;
-    readonly model: string | undefined;
+    readonly model: string;
   };
 }
+
+/** Modelo por defecto de los escenarios de IA; `AI_MODEL` lo sustituye. */
+export const DEFAULT_AI_MODEL = 'claude-opus-5-5';
 
 const ENV_FILE = path.resolve(import.meta.dirname, '..', '..', '.env');
 
@@ -103,6 +108,10 @@ export function loadEnv(): Env {
     runId: vars.TEST_RUN_ID,
     profile: PROFILES[testEnv],
     baseURL: vars.BASE_URL,
-    ai: { provider: vars.AI_PROVIDER, apiKey: vars.AI_API_KEY, model: vars.AI_MODEL },
+    ai: {
+      provider: vars.AI_PROVIDER,
+      apiKey: vars.ANTHROPIC_API_KEY ?? vars.AI_API_KEY,
+      model: vars.AI_MODEL ?? DEFAULT_AI_MODEL,
+    },
   };
 }

@@ -75,6 +75,7 @@ Son dos dimensiones independientes.
 | `setup` | Crea la cuenta de sesión compartida y guarda el `storageState` | — |
 | `functional` | Todos los escenarios sin `@ai`, incluidos los `@mock` | `setup` |
 | `ai` | Solo escenarios `@ai`; usan Anthropic real | — |
+| `ai-unit` | Pruebas del cliente de IA con respuestas simuladas (`tests/ai-unit`): sin red ni API key | — |
 | `cleanup` | Elimina la cuenta de sesión compartida (teardown de `setup`) | — |
 
 `setup` y `cleanup` son tests de Playwright normales (`src/setup/`), no escenarios BDD. `functional` depende de `setup`, y `cleanup` es su teardown: se ejecuta al terminar aunque fallen los escenarios. `ai` no depende de ellos.
@@ -157,20 +158,21 @@ El cliente de Anthropic se ejecuta en Node, no en el navegador, por lo que `page
 
 ```
 src/ai/
-  AiClient           interfaz: envía una petición y devuelve el contenido de la respuesta
-  AnthropicClient    implementación real con el SDK de Anthropic
-  MockAiClient       respuestas programadas: válida, JSON inválido, esquema incorrecto, timeout, error HTTP
-  expectAI           Opción B: prompt, llamada, validación con Zod, umbral, evidencia y resultado
-  profileGenerator   Opción C: prompt, llamada, Zod, reglas de negocio y perfil sin correo ni tarjeta
-  schemas            esquemas Zod de las respuestas
+  client.ts             AiClient: una operación `structured(schema)` sobre el SDK oficial de Anthropic,
+                        AiError (tipos de fallo) y registro de llamadas
+  expect-ai.ts          Opción B: evaluateAI / expectAI → { passed, reason } validado con Zod
+  profile-generator.ts  Opción C: propuesta de la IA → Zod estricto → reglas de negocio → perfil
+tests/ai-unit/          pruebas del cliente con respuestas simuladas (proyecto ai-unit)
 ```
 
-- El fixture del cliente de IA entrega `MockAiClient` en `functional` y `AnthropicClient` en `ai`. Pedir el cliente real fuera del proyecto `ai` es un error de configuración.
-- Sin `AI_API_KEY`, los escenarios `@ai` se omiten con el motivo "AI_API_KEY no configurada" visible en los reportes.
-- `expectAI` y `profileGenerator` dependen solo de la interfaz `AiClient`. Por eso el mismo código se prueba con mocks y se usa con el proveedor real.
-- El texto que se evalúa se envía como dato delimitado dentro del prompt, nunca como instrucción.
-- Al LLM solo se envían datos sintéticos o textos de la aplicación; nunca credenciales, cookies ni datos de tarjeta.
-- **Selectores auto-reparables (Opción A, self-healing):** no forma parte de la primera implementación. Si se incorpora, será un envoltorio opcional de la resolución de localizadores de los Page Objects con estos controles:
+- **Aislamiento.** `@anthropic-ai/sdk` solo se importa de forma dinámica dentro de `createAiClient`, y el fixture `ai` solo crea el cliente en el proyecto `ai` con `ANTHROPIC_API_KEY` (alias `AI_API_KEY`); fuera de él, pedirlo es un error. Verificado con una sonda: `functional` y `ai` sin clave no llaman a `createAiClient`.
+- **Llamada.** `messages.create` con `output_config.format` (`zodOutputFormat`) y esfuerzo `low`. Se comprueba `stop_reason` (`refusal`, `max_tokens`) antes de leer el contenido, y el framework valida siempre el JSON con Zod aunque el proveedor ya haya aplicado el esquema.
+- **Errores.** Clases tipadas del SDK → `AiError` con `kind`: `auth`, `rate_limit`, `timeout`, `server`, `provider`, `max_tokens`, `refusal`, `invalid_output`, `rejected`, `call_limit`. Ninguno produce un resultado positivo.
+- **Límites.** `AI_TIMEOUT_MS` (30 s), 1 reintento del SDK, máximo 4 llamadas por escenario, `max_tokens` acotado por operación.
+- **Modelo.** `AI_MODEL`, por defecto `claude-opus-5-5`. Un rechazo del modelo (`refusal`) falla de forma explícita; no se activa el *fallback* a otro modelo, para que el veredicto de un oráculo siempre lo emita el modelo configurado.
+- **Datos enviados.** Solo textos de la aplicación y peticiones de datos ficticios; nunca credenciales, cookies, correos ni datos de tarjeta. La clave se pasa de forma explícita al SDK y nunca aparece en errores ni adjuntos (verificado con una clave ficticia: 0 apariciones en consola, reportes y trazas).
+- **Evidencia.** `ia-interacciones.json` por escenario: operación, modelo, latencia, tokens, `stop_reason`, resultado y salida validada.
+- **Selectores auto-reparables (Opción A, self-healing):** no forma parte de la implementación. Si se incorpora, será un envoltorio opcional de la resolución de localizadores de los Page Objects con estos controles:
   - Desactivado por defecto.
   - Solo para interacciones, nunca para aserciones.
   - El selector propuesto debe coincidir con un único elemento visible.

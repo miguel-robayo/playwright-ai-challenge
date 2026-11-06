@@ -2,7 +2,7 @@
 
 Reto técnico de QA Automation: framework E2E con Playwright, TypeScript y Gherkin ejecutable (`playwright-bdd`) sobre [Automation Exercise](https://automationexercise.com), con integración de IA mediante Anthropic.
 
-> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2) y checkout autenticado y anónimo (Iteración 3) pago seguro con el POST /payment interceptado y abortado (Iteración 4), y limpieza de cuentas, manejo de errores de red y resiliencia de localizadores (Iteración 5). La suite funcional de la estrategia está completa; la integración de IA llega en su fase.
+> **Estado:** foundation técnica (Fase 2), arquitectura BDD + Screenplay (Fase 3) y Fase 4 en curso: checkout de un usuario anónimo y registro y autenticación con ciclo de vida completo de cuentas (Iteración 1), productos y carrito con sesión compartida reutilizable (Iteración 2) y checkout autenticado y anónimo (Iteración 3) pago seguro con el POST /payment interceptado y abortado (Iteración 4), y limpieza de cuentas, manejo de errores de red y resiliencia de localizadores (Iteración 5). La suite funcional de la estrategia está completa, y la Fase 5 integra la IA (opciones B y C).
 
 ## Documentación
 
@@ -56,8 +56,9 @@ cp .env.example .env              # PowerShell: Copy-Item .env.example .env
 | `TEST_RUN_ID` | uno nuevo por ejecución | Parte de la semilla de los datos sintéticos; fijarlo reproduce los mismos datos (salvo contraseñas) |
 | `BASE_URL` | `https://automationexercise.com` | URL de la aplicación bajo prueba |
 | `AI_PROVIDER` | `anthropic` | Único proveedor admitido |
-| `AI_API_KEY` | vacía | Sin ella, los escenarios `@ai` se omiten con el motivo "AI_API_KEY no configurada" |
-| `AI_MODEL` | vacía | Modelo de Claude; se definirá en la fase de IA |
+| `ANTHROPIC_API_KEY` | vacía | Clave de Anthropic. Sin ella, los escenarios `@ai` se omiten con el motivo "ANTHROPIC_API_KEY no configurada" |
+| `AI_API_KEY` | vacía | Alias de `ANTHROPIC_API_KEY` (nombre del enunciado); `ANTHROPIC_API_KEY` tiene prioridad |
+| `AI_MODEL` | `claude-opus-5-5` | Modelo de Claude de los escenarios de IA |
 
 Las variables del entorno del proceso tienen prioridad sobre `.env`. La configuración se valida con Zod al arrancar: un valor inválido (por ejemplo `TEST_ENV=foo`) detiene la ejecución con un mensaje que indica la variable y el problema.
 
@@ -69,7 +70,8 @@ Son dos dimensiones independientes.
 |---|---|
 | `setup` / `cleanup` | Crean y eliminan la cuenta de la sesión compartida (`.auth/`) para los escenarios `@shared-session`. Se ejecutan solos como dependencia de `functional` |
 | `functional` | Todos los escenarios sin la etiqueta `@ai`. No usa Anthropic ni carga código de IA |
-| `ai` | Solo los escenarios `@ai`. Sin reintentos, para que la variabilidad del modelo sea visible |
+| `ai` | Solo los escenarios `@ai`, contra Anthropic real. Sin reintentos, para que la variabilidad del modelo sea visible |
+| `ai-unit` | Pruebas del cliente de IA con respuestas simuladas: sin red ni API key |
 
 | Entorno (`TEST_ENV`) | Workers | Reintentos (`functional`) | `forbidOnly` |
 |---|---|---|---|
@@ -88,7 +90,8 @@ Los tests de Playwright se generan a partir de los `.feature` al cargar `playwri
 |---|---|
 | `npm test` (o `npx playwright test`) | Ejecuta todos los proyectos sin interfaz gráfica |
 | `npm run test:functional` | Solo el proyecto `functional` |
-| `npm run test:ai` | Solo el proyecto `ai` |
+| `npm run test:ai` | Solo el proyecto `ai` (requiere `ANTHROPIC_API_KEY`) |
+| `npm run test:ai-unit` | Pruebas del cliente de IA con respuestas simuladas |
 | `npm run test:headed` | `functional` con el navegador visible |
 | `npm run test:ui` | Modo UI de Playwright |
 | `npm run test:debug` | `functional` con el inspector de Playwright, en pausa |
@@ -113,7 +116,7 @@ features/            escenarios Gherkin (.feature)
   network/           error de red simulado en add_to_cart
   resilience/        variantes controladas del DOM
   checkout/          checkout autenticado (direcciones y total) y anónimo
-  ai/                verificación provisional del proyecto ai
+  ai/                aserciones semánticas y datos generados con IA (@ai)
 steps/
   common/            step definitions de todos los proyectos
   ai/                step definitions que solo carga el proyecto ai
@@ -126,8 +129,10 @@ src/
   tasks/             objetivos de negocio que coordinan acciones
   questions/         consultas que convierten el estado de la página en datos tipados
   interactions/      operaciones transversales: sincronización HTTP, guards y campos secretos
+  ai/                cliente de Anthropic, expectAI y generador de perfiles
   setup/             proyectos setup/cleanup de la sesión compartida
   support/           global setup (limpieza de resultados de Allure)
+tests/ai-unit/       pruebas del cliente de IA con respuestas simuladas
 docs/                documentación del reto
 playwright.config.ts
 ```
@@ -156,8 +161,8 @@ El enunciado exige al menos dos de tres desafíos. Se seleccionaron:
 
 | Opción | Desafío | Estado |
 |---|---|---|
-| B | Aserciones semánticas: `expectAI(actualText, expectedIntent)` | Planificada para la fase de IA |
-| C | Generación de datos sintéticos con Anthropic, validados con Zod | Planificada para la fase de IA |
+| B | Aserciones semánticas: `expectAI(cliente, texto, criterio)` → `{ passed, reason }` validado con Zod | Implementada (`src/ai/expect-ai.ts`) |
+| C | Generación de datos sintéticos con Anthropic, validados con Zod y reglas de negocio | Implementada (`src/ai/profile-generator.ts`) |
 | A | Selectores auto-reparables (self-healing) | Opcional; fuera de la primera implementación |
 
 La justificación está en [docs/requirements-analysis.md](docs/requirements-analysis.md), sección 4, y la estrategia de validación en [docs/test-strategy.md](docs/test-strategy.md), sección 7.

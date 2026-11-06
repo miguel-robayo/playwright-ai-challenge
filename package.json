@@ -12,6 +12,7 @@
     "test": "playwright test",
     "test:functional": "playwright test --project=functional",
     "test:ai": "playwright test --project=ai",
+    "test:ai-unit": "playwright test --project=ai-unit",
     "test:headed": "playwright test --project=functional --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --project=functional --debug",
@@ -27,6 +28,7 @@
     "validate": "npm run typecheck && npm run lint && npm run format:check && npm run test:list"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@eslint/js": "^10.0.1",
     "@faker-js/faker": "^10.6.0",
     "@playwright/test": "1.65.0",

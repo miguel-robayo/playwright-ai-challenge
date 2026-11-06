@@ -12,3 +12,6 @@ export const NAVIGATION_TIMEOUT_MS = 30_000;
  * segundo contexto sobre una aplicación pública lenta; 30 s (valor por defecto) no basta.
  */
 export const TEST_TIMEOUT_MS = 60_000;
+
+/** Límite por llamada a Anthropic (el SDK reintenta una vez 429/5xx y timeouts). */
+export const AI_TIMEOUT_MS = 30_000;
